@@ -1,0 +1,163 @@
+# https://kubetm.github.io/helm/02-template-guide/step_1/
+
+
+
+### 1. 내 차트 만들기
+# 1) Chart Template 생성
+helm create mychart
+
+# 2) 폴더 이동
+cd mychart/
+
+# 3) show 명령어
+helm show values .
+helm show chart .
+helm show readme .
+helm show all .
+
+# 4) README.md 파일 생성
+# 4.1) README.md 파일 생성
+vi README.md
+
+# 4.2) 입력 모드 전환
+i
+
+# 4.3) 수정
+This is README.md
+
+# 4.4) 저장
+ESC + : + wq! + enter
+
+# 5) template 명령어(변수값들이 채워져서 보임)
+# 내가 만든 helm chart의 결과를 미리 확인할 수 있음
+helm template mychart .
+
+# 6) Chart 배포
+helm install mychart .
+
+# 7) Get 명령어
+helm get manifest mychart
+helm get notes mychart
+helm get values mychart
+helm get all mychart
+
+# 8) helm get values mychart 비교
+# 옵션으로 준 input parameter들에 대한 정보 조회
+helm uninstall mychart
+helm install mychart . -f values.yaml
+helm install mychart . --set replicaCount=3
+
+
+
+### 2. 내장 객체
+# 1) configmap 추가
+vi cm-object.yaml
+
+# 2) 파일 내용
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: built-in-object
+data:
+  .Release: ______________________________________
+  .Release.Name: {{ .Release.Name }}
+  .Release.Namespace: {{ .Release.Namespace }}
+  .Release.IsUpgrade: "{{ .Release.IsUpgrade }}"
+  .Release.IsInstall: "{{ .Release.IsInstall }}"
+  .Release.Revision: "{{ .Release.Revision }}"
+  .Release.Service: {{ .Release.Service }}
+  .Values: ______________________________________
+  .Values.replicaCount: "{{ .Values.replicaCount }}"
+  .Values.image.repository: {{ .Values.image.repository }}
+  .Values.image.pullPolicy: {{ .Values.image.pullPolicy }}
+  .Values.service.type: {{ .Values.service.type }}
+  .Values.service.port: "{{ .Values.service.port }}"
+  .Chart: ______________________________________
+  .Chart.Name: {{ .Chart.Name }}
+  .Chart.Description: {{ .Chart.Description }}
+  .Chart.Type: {{ .Chart.Type }}
+  .Chart.Version: {{ .Chart.Version }}
+  .Chart.AppVersion: {{ .Chart.AppVersion }}
+  .Template: ______________________________________
+  .Template.BasePath: {{ .Template.BasePath }}
+  .Template.Name: {{ .Template.Name }}
+
+# 3) templates 폴더 안에 불필요한 파일 삭제
+rm -rf deployment.yaml hpa.yaml ingress.yaml serviceaccount.yaml tests
+
+# 4) install 배포
+helm install mychart . -n default
+helm get manifest mychart 
+helm upgrade mychart . -n default
+
+
+
+### 3. 변수 주입 우선순위 
+# 1) configmap 추가 
+vi cm-values.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: values-yaml
+data:
+  env: {{ .Values.configMapData.env }}
+  log: {{ .Values.configMapData.log }}
+  path: "{{ .Values.configMapData.path }}"
+
+# 2) values.yaml에 해당 속성 추가
+configMapData:
+  env: dev
+  log: debug
+  path: "/data"
+
+# 3) 확인 
+helm template mychart .
+
+# 4) Prod용 values_prod.yaml 파일 추가
+vi values_prod.yaml
+
+configMapData:
+  env: prod
+  log: info
+
+# 5) -f 옵션 적용
+helm template mychart . -f ./values_prod.yaml
+
+# 6) -f 옵션 적용, –set 옵션 적용
+helm template mychart . -f ./values_prod.yaml --set configMapData.log=debug
+
+
+
+# 4. 사용자 정의 변수(기존 파일 수정 안해도됨)
+# 1) _helpers.tpl 파일
+{{/*
+Expand the name of the chart.
+*/}}
+{{- define "mychart.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Common labels
+*/}}
+{{- define "mychart.labels" -}}
+helm.sh/chart: {{ include "mychart.chart" . }}
+{{ include "mychart.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+# 2) service.yaml 파일
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mychart.fullname" . }}
+  labels:
+    {{- include "mychart.labels" . | nindent 4 }}
+
+# 3) 확인
+helm template mychart .
+

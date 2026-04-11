@@ -1,0 +1,70 @@
+### 1. helm chart 설치(맥북 기준)
+brew install helm
+
+
+
+### 2. helm 키워드 자동 완성
+# 1) bash-completion 설치
+brew install bash-completion
+
+# 2) 설정을 bashrc 또는 bash_profile에 추가
+echo "source <(helm completion bash)" >> ~/.bash_profile
+
+# 3) 설정 반영
+source ~/.bash_profile
+
+# [이슈] 위 방법으로 진행했으나 설치하기 전이랑 동일
+# [원인] brew install bash-completion을 설치했더라도, Bash가 실행될 때 이 기능을 불러오지 않으면 아무 소용이 없습니다. ~/.bash_profile 파일을 열어 아래 코드가 있는지 확인하고, 없다면 맨 위에 추가
+# [해결] 아래 코드를 ~/.bash_profile 파일 맨 위에 추가
+# bash-completion이 설치되어 있다면 로드합니다.
+if [ -f $(brew --prefix)/etc/bash_completion ]; then
+  . $(brew --prefix)/etc/bash_completion
+fi
+
+# 4) 설정 재반영
+source ~/.bash_profile에
+
+
+### 3. helm repository 등록(톰캣)
+# 1) repository 등록
+helm repo add bitnami https://charts.bitnami.com/bitnami
+
+# 2) repository 검색(잘 사용안함)
+helm search repo bitnami | grep tomcat
+
+# 3) repository에서 최신 버전 가져오기(잘 사용안함)
+helm repo update
+
+# 4) repository 삭제
+helm repo remove bitnami
+
+# 5) 톰캣 설치
+helm install my-tomcat bitnami/tomcat
+helm install my-tomcat bitnami/tomcat --version 13.4.11
+helm install my-tomcat bitnami/tomcat --version 13.0.9 --set persistence.enabled=false
+* persistence volume 사용안하고 파드에 저장
+
+# 5.1) 톰캣 관리자 페이지에 접속되도록 설치
+helm install my-tomcat bitnami/tomcat --version 13.0.9 --set persistence.enabled=false,tomcatAllowRemoteManagement=1
+
+# 6) 설치 확인
+kubectl get svc my-tomcat
+
+# 7) 상태 확인
+helm status my-tomcat
+
+# 8) 설치 삭제
+helm uninstall my-tomcat 
+
+
+
+### 3. 포트 포워딩
+# 1) 톰캣 파드의 이름을 확인
+kubectl get pods -o wide
+
+# 2) 해당 파드와 맥북을 연결합니다. (톰캣 기본 포트가 8080인 경우)
+kubectl port-forward pod/<톰캣_파드_이름> 8888:8080
+kubectl port-forward pod/my-tomcat-7f69d77588-5r888 8888:8080
+
+# 3) 접속 테스트
+맥북 브라우저에서 **http://localhost:8888**로 접속
