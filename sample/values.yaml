@@ -1,0 +1,135 @@
+# Sample chart: three workloads (backend1, backend2, frontend).
+# Build images from sample/sources/* and push (or kind load), then set image.repository/tag.
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+imagePullSecrets: []
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+securityContext: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+components:
+  backend1:
+    enabled: true
+    replicaCount: 1
+    image:
+      repository: sample-backend1
+      tag: latest
+      pullPolicy: IfNotPresent
+    containerPort: 8000
+    service:
+      type: ClusterIP
+      port: 8000
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: http
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: http
+    resources: {}
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 80
+
+  backend2:
+    enabled: true
+    replicaCount: 1
+    image:
+      repository: sample-backend2
+      tag: latest
+      pullPolicy: IfNotPresent
+    containerPort: 8000
+    service:
+      type: ClusterIP
+      port: 8000
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: http
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: http
+    resources: {}
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 80
+
+  frontend:
+    enabled: true
+    replicaCount: 1
+    image:
+      repository: sample-frontend
+      tag: latest
+      pullPolicy: IfNotPresent
+    containerPort: 80
+    service:
+      type: ClusterIP
+      port: 80
+    livenessProbe:
+      httpGet:
+        path: /
+        port: http
+    readinessProbe:
+      httpGet:
+        path: /
+        port: http
+    resources: {}
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 80
+
+# Ingress routes /api/* to backends and / to the frontend (same host = browser fetch works).
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: sample.local
+      paths:
+        - path: /api/departments
+          pathType: Prefix
+          component: backend1
+        - path: /api/employees
+          pathType: Prefix
+          component: backend2
+        - path: /
+          pathType: Prefix
+          component: frontend
+  tls: []
+
+httpRoute:
+  enabled: false
+  annotations: {}
+  parentRefs:
+    - name: gateway
+      sectionName: http
+  hostnames:
+    - chart-example.local
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /headers

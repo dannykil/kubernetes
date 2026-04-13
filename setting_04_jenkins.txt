@@ -1,0 +1,48 @@
+
+# 1. Jenkins 설치용 네임스페이스 생성
+kubectl create namespace jenkins
+
+
+# 2. Jenkins Helm 레포지토리 추가
+helm repo add jenkins https://charts.jenkins.io
+helm repo update
+
+
+# 3. Helm으로 Jenkins 설치
+# 'my-release'라는 이름으로 jenkins 네임스페이스에 설치
+helm install jenkins jenkins/jenkins --namespace jenkins
+
+
+# 4. 설치 확인 및 대시보드 접속
+# 1) 파드 상태 확인
+kubectl get pods -n jenkins
+
+# 2) 포트 포워딩 (맥북 브라우저 접속용)
+# Jenkins 컨트롤러 파드(StatefulSet)로 연결 — 로컬 8081 → 파드 8080 (Argo CD가 8080 사용 시)
+# 브라우저에서 **http://localhost:8081** 으로 접속
+kubectl port-forward -n jenkins sts/jenkins 8081:8080
+
+# 3) 초기 비밀번호 확인
+# 로그인 아이디는 admin이며, 비밀번호는 쿠버네티스 시크릿에 암호화되어 저장되어 있습니다. 아래 명령어로 확인하세요.
+kubectl exec --namespace jenkins -it svc/jenkins -c jenkins -- /bin/cat /run/secrets/additional/chart-admin-password && echo
+
+
+### 5. 삭제
+helm uninstall jenkins -n jenkins
+kubectl get pvc -n jenkins
+kubectl delete pvc -n jenkins --all
+kubectl delete namespace jenkins
+
+
+### 6. 로그 확인
+# 1) 아직 메인 컨테이너가 안 떴을 때 (Init / ContainerCreating / Pending)
+kubectl describe pod <파드이름> -n <네임스페이스>
+kubectl describe pod jenkins-0 -n jenkins
+
+# 2) 메인 컨테이너가 이미 돌기 시작했을 때
+kubectl logs <파드이름> -n <네임스페이스> -f
+kubectl logs jenkins-0 -n jenkins -f
+
+# 3) 방금 죽었다가 다시 뜨는 경우 (CrashLoopBackOff)
+kubectl logs <파드이름> -n <네임스페이스> -c <컨테이너이름> --previous
+kubectl logs jenkins-0 -n jenkins -c jenkins-0 --previous

@@ -1,0 +1,31 @@
+Sample app: backend1 (회사/부서), backend2 (직원), frontend (React).
+
+1. Build and load images (example for kind, release name `sample`):
+   docker build -t sample-backend1:latest sample/sources/backend1
+   docker build -t sample-backend2:latest sample/sources/backend2
+   docker build -t sample-frontend:latest sample/sources/frontend
+   kind load docker-image sample-backend1:latest sample-backend2:latest sample-frontend:latest
+
+2. Install / upgrade:
+   helm upgrade --install sample ./sample -n default
+
+3. With Ingress (set ingress.enabled true and fix host / ingressClass):
+{{- if .Values.ingress.enabled }}
+{{- range $h := .Values.ingress.hosts }}
+  {{- range .paths }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $h.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+{{- else }}
+   Enable ingress in values, or port-forward the frontend and use kubectl proxy / separate forwards for APIs.
+   Frontend:
+     kubectl port-forward svc/{{ include "sample.component.fullname" (dict "root" . "name" "frontend") }} 8080:80
+   Backend1:
+     kubectl port-forward svc/{{ include "sample.component.fullname" (dict "root" . "name" "backend1") }} 8003:8000
+   Backend2:
+     kubectl port-forward svc/{{ include "sample.component.fullname" (dict "root" . "name" "backend2") }} 8002:8000
+   Then set Vite env or use Ingress so the browser can reach /api/departments and /api/employees on the same origin.
+{{- end }}
+
+4. Helm test hits the frontend Service:
+   helm test sample

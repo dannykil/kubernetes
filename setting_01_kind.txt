@@ -1,12 +1,12 @@
-### kind 클러스터 생성 및 삭제
-# 클러스터 생성
+### 1. kind 클러스터 생성 및 삭제
+# 1) 클러스터 생성
 kind create cluster --config ./kind-config.yaml 
 
-# 클러스터 삭제
+# 2) 클러스터 삭제
 kind delete cluster
 
 
-### 대시보드 설치
+### 2. 대시보드 설치
 # 1) 대시보드 설치하기
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml
 

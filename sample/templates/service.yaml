@@ -1,0 +1,20 @@
+{{- range $name, $cfg := .Values.components }}
+{{- if $cfg.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "sample.component.fullname" (dict "root" $ "name" $name) }}
+  labels:
+    {{- include "sample.component.labels" (dict "root" $ "name" $name) | nindent 4 }}
+spec:
+  type: {{ $cfg.service.type }}
+  ports:
+    - port: {{ $cfg.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "sample.component.selectorLabels" (dict "root" $ "name" $name) | nindent 4 }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,25 @@
+# Argo CD Application — Helm chart at repo path: sample/
+# 적용: kubectl apply -f argocd/application-sample.yaml -n argocd
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sample
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/dannykil/kubernetes.git
+    path: sample
+    targetRevision: main
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sample
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

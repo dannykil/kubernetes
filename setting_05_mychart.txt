@@ -1,7 +1,3 @@
-# https://kubetm.github.io/helm/02-template-guide/step_1/
-
-
-
 ### 1. 내 차트 만들기
 # 1) Chart Template 생성
 helm create mychart
@@ -161,3 +157,8 @@ metadata:
 # 3) 확인
 helm template mychart .
 
+
+
+### 참고
+# 1) KubeTM Blog (인프런 강사 자료실)
+https://kubetm.github.io/helm/02-template-guide/step_1/
