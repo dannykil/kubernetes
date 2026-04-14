@@ -28,7 +28,7 @@ components:
     replicaCount: 1
     image:
       repository: dannielkil/sample-backend1
-      tag: '1.0.1'
+      tag: '1.0.0'
       pullPolicy: IfNotPresent
     containerPort: 8000
     service:
@@ -54,7 +54,7 @@ components:
     replicaCount: 1
     image:
       repository: dannielkil/sample-backend2
-      tag: '1.0.1'
+      tag: '1.0.0'
       pullPolicy: IfNotPresent
     containerPort: 8000
     service:
@@ -80,7 +80,7 @@ components:
     replicaCount: 1
     image:
       repository: dannielkil/sample-frontend
-      tag: '1.0.1'
+      tag: '1.0.0'
       pullPolicy: IfNotPresent
     containerPort: 80
     service:
