@@ -47,7 +47,7 @@ components:
     replicaCount: 1
     image:
       repository: dannielkil/sample-backend2
-      tag: '53cf21a'
+      tag: 'fc08bb8'
       pullPolicy: IfNotPresent
     containerPort: 8000
     service:
