@@ -3,25 +3,19 @@
 
 nameOverride: ''
 fullnameOverride: ''
-
 serviceAccount:
   create: true
   automount: true
   annotations: {}
   name: ''
-
 imagePullSecrets: []
-
 podAnnotations: {}
 podLabels: {}
-
 podSecurityContext: {}
 securityContext: {}
-
 nodeSelector: {}
 tolerations: []
 affinity: {}
-
 components:
   backend1:
     enabled: true
@@ -48,13 +42,12 @@ components:
       minReplicas: 1
       maxReplicas: 10
       targetCPUUtilizationPercentage: 80
-
   backend2:
     enabled: true
     replicaCount: 1
     image:
       repository: dannielkil/sample-backend2
-      tag: '1.0.0'
+      tag: '53cf21a'
       pullPolicy: IfNotPresent
     containerPort: 8000
     service:
@@ -74,7 +67,6 @@ components:
       minReplicas: 1
       maxReplicas: 10
       targetCPUUtilizationPercentage: 80
-
   frontend:
     enabled: true
     replicaCount: 1
@@ -100,7 +92,6 @@ components:
       minReplicas: 1
       maxReplicas: 10
       targetCPUUtilizationPercentage: 80
-
 # Ingress routes /api/* to backends and / to the frontend (same host = browser fetch works).
 ingress:
   # enabled: false
@@ -121,7 +112,6 @@ ingress:
           pathType: Prefix
           component: frontend
   tls: []
-
 httpRoute:
   enabled: false
   annotations: {}
