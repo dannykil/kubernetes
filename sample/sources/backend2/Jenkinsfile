@@ -1,9 +1,11 @@
-// Kubernetes 에이전트: docker CLI + DinD (privileged)
 pipeline {
   agent {
     kubernetes {
       yaml """
         spec:
+          volumes:
+            - name: dind-graph
+              emptyDir: {}
           containers:
             - name: docker
               image: docker:27-cli
@@ -14,11 +16,16 @@ pipeline {
                   value: tcp://127.0.0.1:2375
             - name: dind
               image: docker:27-dind
+              args:
+                - --storage-driver=vfs
               securityContext:
                 privileged: true
               env:
                 - name: DOCKER_TLS_CERTDIR
                   value: ""
+              volumeMounts:
+                - name: dind-graph
+                  mountPath: /var/lib/docker
       """
     }
   }
@@ -42,6 +49,14 @@ pipeline {
       steps {
         container('docker') {
           sh """
+            set -e
+            echo "Waiting for Docker daemon..."
+            for i in \$(seq 1 120); do
+              if docker info >/dev/null 2>&1; then echo "Docker is up."; break; fi
+              if [ "\$i" -eq 120 ]; then echo "Timed out waiting for Docker"; exit 1; fi
+              sleep 1
+            done
+            docker info
             docker build -t ${IMAGE_REPO}:${env.GIT_SHORT} ${CONTEXT_DIR}
             docker tag ${IMAGE_REPO}:${env.GIT_SHORT} ${IMAGE_REPO}:latest
           """
