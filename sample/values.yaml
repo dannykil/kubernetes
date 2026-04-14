@@ -1,14 +1,14 @@
 # Sample chart: three workloads (backend1, backend2, frontend).
 # Build images from sample/sources/* and push (or kind load), then set image.repository/tag.
 
-nameOverride: ""
-fullnameOverride: ""
+nameOverride: ''
+fullnameOverride: ''
 
 serviceAccount:
   create: true
   automount: true
   annotations: {}
-  name: ""
+  name: ''
 
 imagePullSecrets: []
 
@@ -103,8 +103,10 @@ components:
 
 # Ingress routes /api/* to backends and / to the frontend (same host = browser fetch works).
 ingress:
-  enabled: false
-  className: ""
+  # enabled: false
+  # className: ""
+  enabled: true
+  className: nginx
   annotations: {}
   hosts:
     - host: sample.local
