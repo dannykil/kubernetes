@@ -13,7 +13,9 @@ docker build -t dannielkil/sample-backend1:1.0.0 ./sample/sources/backend1
 - Jenkins Credentials: 종류 **Username with password** (Docker Hub)  
   - ID: `dockerhub` (Jenkinsfile의 `DOCKERHUB_CREDENTIALS`와 동일하게)  
   - Username: Docker Hub ID, Password: PAT 권장
-- **에이전트에 Docker** 사용 가능해야 함 (호스트 Docker 또는 DinD). K8s 안의 Jenkins만 있고 소켓이 없으면 Kaniko 등 별도 구성 필요.
+- **에이전트에 Docker**: 저장소의 Jenkinsfile은 **Kubernetes Pod 안에서 `docker:27-cli` + `docker:27-dind`(privileged)** 를 함께 띄우도록 되어 있음. `docker: not found` 는 예전 `agent any` 만 쓸 때 나는 증상 — 최신 Jenkinsfile 반영 후 재빌드.
+- **privileged**: DinD 컨테이너에 필요. kind 기본은 보통 허용. `Pod Security` / 정책으로 막히면 `jenkins` 네임스페이스 예외 또는 Kaniko 전환.
+- 플러그인: **Kubernetes** (Jenkins Kubernetes plugin) + 클라우드에 연결된 클러스터가 있어야 `agent { kubernetes { ... } }` 가 동작함.
 
 #### Job 생성 (각각 동일 패턴, 이름만 다르게)
 1. 새 Item → **Pipeline** → 이름 예: `sample-backend1`, `sample-backend2`, `sample-frontend`
