@@ -1,0 +1,5 @@
+# 1) kind만 쓰는 경우 (이미지를 Hub에 안 올릴 때)
+docker build -t sample-backend1:latest sample/sources/backend1
+docker build -t sample-backend2:latest sample/sources/backend2
+docker build -t sample-frontend:latest sample/sources/frontend
+kind load docker-image sample-backend1:latest sample-backend2:latest sample-frontend:latest
