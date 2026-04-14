@@ -60,3 +60,30 @@ docker build -t dannielkil/sample-backend1:1.0.0 ./sample/sources/backend1
 
 #### Jenkinsfile 내 Docker Hub 네임스페이스
 - 각 Jenkinsfile 상단 `IMAGE_REPO = 'dannielkil/sample-...'` 를 실제 Hub 계정에 맞게 수정
+
+---
+
+### 3) GitOps: values.yaml 태그 자동 갱신 + Git push (Jenkinsfile에 포함됨)
+
+#### Jenkins Credential 추가
+- 종류: **Username with password**
+- **ID: `github-push`** (Jenkinsfile의 `GIT_PUSH_CREDENTIALS` 와 동일)
+- **Username**: GitHub 사용자명 또는 `x-access-token`
+- **Password**: `repo` 권한이 있는 **Personal Access Token** (Fine-grained면 해당 저장소 Contents read/write)
+- PAT에 특수문자가 있으면 URL 인코딩 이슈가 날 수 있음 — 문제 시 Jenkins에서 **Secret text**만 쓰는 방식 등으로 조정
+
+#### Jenkinsfile 동작 요약
+1. Docker Hub에 이미지 푸시까지 완료
+2. `git fetch` 후 `main` 을 `origin/main` 과 맞춤 (`git checkout -B main origin/main`)
+3. `mikefarah/yq:4` 컨테이너로 `sample/values.yaml` 의 해당 컴포넌트 `image.tag` 만 `GIT_SHORT`(커밋 7자리)로 수정
+4. `git commit` 메시지에 **`[skip ci]`** 포함 (웹훅/폴링이 이 커밋으로 불필요 빌드를 도는 것 완화)
+5. `https://USER:TOKEN@github.com/<GIT_REPO_SLUG>.git` 으로 `HEAD:main` push
+
+#### 저장소 슬러그
+- `GIT_REPO_SLUG` 기본값: `dannykil/kubernetes` — fork/이름이 다르면 각 Jenkinsfile `environment` 에서 수정
+
+#### Argo CD
+- `main` 의 `sample/values.yaml` 변경을 이미 추적 중이면 **추가 설정 없이** sync 시 새 태그 반영
+
+#### GWT 경로 필터와의 관계
+- `sample/values.yaml` 만 바뀐 커밋은 `sample/sources/backend1/` 등에 안 걸리므로 **백엔드/프론트 Job은 트리거되지 않음** (의도한 동작)

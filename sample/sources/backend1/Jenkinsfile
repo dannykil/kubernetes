@@ -1,5 +1,6 @@
-// Kubernetes: docker CLI 컨테이너 + DinD(privileged). dind는 /var/lib/docker 볼륨 + vfs 권장(중첩 환경).
-// Prep 후 docker info 가 뜰 때까지 대기 — 데몬 기동 전 docker build 시 "Cannot connect" 방지.
+// 3단계: Push 후 sample/values.yaml 의 해당 컴포넌트 tag 갱신 → Git push
+// Jenkins Credentials: dockerhub, github-push (Username+Password: GitHub PAT 권장, Username은 깃허브 ID 또는 x-access-token)
+// GIT_REPO_SLUG 는 실제 org/repo 로 맞출 것
 pipeline {
   agent {
     kubernetes {
@@ -36,6 +37,8 @@ pipeline {
     IMAGE_REPO = 'dannielkil/sample-backend1'
     CONTEXT_DIR = 'sample/sources/backend1'
     DOCKERHUB_CREDENTIALS = 'dockerhub'
+    GIT_PUSH_CREDENTIALS = 'github-push'
+    GIT_REPO_SLUG = 'dannykil/kubernetes'
   }
 
   stages {
@@ -76,6 +79,51 @@ pipeline {
               docker push ${IMAGE_REPO}:latest
             """
           }
+        }
+      }
+    }
+
+    stage('Prepare GitOps branch') {
+      steps {
+        sh """
+          set -e
+          git fetch origin
+          git checkout -B main origin/main
+        """
+      }
+    }
+
+    stage('Patch values.yaml') {
+      steps {
+        container('docker') {
+          sh """
+            set -e
+            export TAG='${env.GIT_SHORT}'
+            docker pull mikefarah/yq:4
+            docker run --rm -e TAG -v "\$PWD:/work" -w /work mikefarah/yq:4 \\
+              eval -i '.components.backend1.image.tag = strenv(TAG)' sample/values.yaml
+          """
+        }
+      }
+    }
+
+    stage('Push GitOps commit') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: "${GIT_PUSH_CREDENTIALS}", usernameVariable: 'GH_USER', passwordVariable: 'GH_TOKEN')]) {
+          sh """
+            set -e
+            git config user.email "jenkins@ci.local"
+            git config user.name "Jenkins CI"
+            git add sample/values.yaml
+            if git diff --cached --quiet; then
+              echo "No changes to sample/values.yaml"
+              exit 0
+            fi
+            git commit -m "chore(sample): bump backend1 image to ${env.GIT_SHORT} [skip ci]"
+            set +x
+            git push "https://\${GH_USER}:\${GH_TOKEN}@github.com/${env.GIT_REPO_SLUG}.git" HEAD:main
+            set -x
+          """
         }
       }
     }

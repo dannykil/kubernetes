@@ -1,3 +1,4 @@
+// 3단계: values + git push. Credentials: dockerhub, github-push
 pipeline {
   agent {
     kubernetes {
@@ -34,6 +35,8 @@ pipeline {
     IMAGE_REPO = 'dannielkil/sample-frontend'
     CONTEXT_DIR = 'sample/sources/frontend'
     DOCKERHUB_CREDENTIALS = 'dockerhub'
+    GIT_PUSH_CREDENTIALS = 'github-push'
+    GIT_REPO_SLUG = 'dannykil/kubernetes'
   }
 
   stages {
@@ -74,6 +77,51 @@ pipeline {
               docker push ${IMAGE_REPO}:latest
             """
           }
+        }
+      }
+    }
+
+    stage('Prepare GitOps branch') {
+      steps {
+        sh """
+          set -e
+          git fetch origin
+          git checkout -B main origin/main
+        """
+      }
+    }
+
+    stage('Patch values.yaml') {
+      steps {
+        container('docker') {
+          sh """
+            set -e
+            export TAG='${env.GIT_SHORT}'
+            docker pull mikefarah/yq:4
+            docker run --rm -e TAG -v "\$PWD:/work" -w /work mikefarah/yq:4 \\
+              eval -i '.components.frontend.image.tag = strenv(TAG)' sample/values.yaml
+          """
+        }
+      }
+    }
+
+    stage('Push GitOps commit') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: "${GIT_PUSH_CREDENTIALS}", usernameVariable: 'GH_USER', passwordVariable: 'GH_TOKEN')]) {
+          sh """
+            set -e
+            git config user.email "jenkins@ci.local"
+            git config user.name "Jenkins CI"
+            git add sample/values.yaml
+            if git diff --cached --quiet; then
+              echo "No changes to sample/values.yaml"
+              exit 0
+            fi
+            git commit -m "chore(sample): bump frontend image to ${env.GIT_SHORT} [skip ci]"
+            set +x
+            git push "https://\${GH_USER}:\${GH_TOKEN}@github.com/${env.GIT_REPO_SLUG}.git" HEAD:main
+            set -x
+          """
         }
       }
     }
