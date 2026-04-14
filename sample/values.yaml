@@ -22,7 +22,7 @@ components:
     replicaCount: 1
     image:
       repository: dannielkil/sample-backend1
-      tag: '1.0.0'
+      tag: 'fc08bb8'
       pullPolicy: IfNotPresent
     containerPort: 8000
     service:
