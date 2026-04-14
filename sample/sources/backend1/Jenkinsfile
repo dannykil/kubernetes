@@ -1,0 +1,37 @@
+// Job: Pipeline from SCM — Script Path: sample/sources/backend1/Jenkinsfile
+// 워크스페이스 = Git 저장소 루트. Credentials ID `dockerhub` 는 Jenkins에서 생성한 값과 맞출 것.
+pipeline {
+  agent any
+
+  environment {
+    IMAGE_REPO = 'dannielkil/sample-backend1'
+    CONTEXT_DIR = 'sample/sources/backend1'
+    DOCKERHUB_CREDENTIALS = 'dockerhub'
+  }
+
+  stages {
+    stage('Build') {
+      steps {
+        script {
+          env.GIT_SHORT = sh(returnStdout: true, script: 'git rev-parse --short=7 HEAD').trim()
+        }
+        sh """
+          docker build -t ${IMAGE_REPO}:${env.GIT_SHORT} ${CONTEXT_DIR}
+          docker tag ${IMAGE_REPO}:${env.GIT_SHORT} ${IMAGE_REPO}:latest
+        """
+      }
+    }
+
+    stage('Push') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS}", usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
+          sh """
+            echo "\$DH_PASS" | docker login -u "\$DH_USER" --password-stdin
+            docker push ${IMAGE_REPO}:${env.GIT_SHORT}
+            docker push ${IMAGE_REPO}:latest
+          """
+        }
+      }
+    }
+  }
+}

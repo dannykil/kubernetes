@@ -1,0 +1,36 @@
+// Job: Pipeline from SCM — Script Path: sample/sources/backend2/Jenkinsfile
+pipeline {
+  agent any
+
+  environment {
+    IMAGE_REPO = 'dannielkil/sample-backend2'
+    CONTEXT_DIR = 'sample/sources/backend2'
+    DOCKERHUB_CREDENTIALS = 'dockerhub'
+  }
+
+  stages {
+    stage('Build') {
+      steps {
+        script {
+          env.GIT_SHORT = sh(returnStdout: true, script: 'git rev-parse --short=7 HEAD').trim()
+        }
+        sh """
+          docker build -t ${IMAGE_REPO}:${env.GIT_SHORT} ${CONTEXT_DIR}
+          docker tag ${IMAGE_REPO}:${env.GIT_SHORT} ${IMAGE_REPO}:latest
+        """
+      }
+    }
+
+    stage('Push') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS}", usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
+          sh """
+            echo "\$DH_PASS" | docker login -u "\$DH_USER" --password-stdin
+            docker push ${IMAGE_REPO}:${env.GIT_SHORT}
+            docker push ${IMAGE_REPO}:latest
+          """
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,60 @@
+### 1) 수동 이미지 푸시 (1단계 참고)
+docker login
+cd <kubernetes 저장소 루트>
+docker build -t dannielkil/sample-backend1:1.0.0 ./sample/sources/backend1
+# … push 생략
+
+---
+
+### 2) Jenkins: Job 3개 + Jenkinsfile 3개 + Generic Webhook 경로 필터
+
+#### 사전 준비
+- Jenkins 플러그인 설치: **Generic Webhook Trigger**
+- Jenkins Credentials: 종류 **Username with password** (Docker Hub)  
+  - ID: `dockerhub` (Jenkinsfile의 `DOCKERHUB_CREDENTIALS`와 동일하게)  
+  - Username: Docker Hub ID, Password: PAT 권장
+- **에이전트에 Docker** 사용 가능해야 함 (호스트 Docker 또는 DinD). K8s 안의 Jenkins만 있고 소켓이 없으면 Kaniko 등 별도 구성 필요.
+
+#### Job 생성 (각각 동일 패턴, 이름만 다르게)
+1. 새 Item → **Pipeline** → 이름 예: `sample-backend1`, `sample-backend2`, `sample-frontend`
+2. **Pipeline** → Definition: **Pipeline script from SCM**
+   - SCM: Git → 저장소 URL (예: https://github.com/dannykil/kubernetes.git)
+   - Branches: `*/main` (실제 브랜치에 맞출 것)
+   - Script Path:
+     - backend1 Job: `sample/sources/backend1/Jenkinsfile`
+     - backend2 Job: `sample/sources/backend2/Jenkinsfile`
+     - frontend Job: `sample/sources/frontend/Jenkinsfile`
+3. **Lightweight checkout** 은 끄는 편이 안전(전체 클론으로 컨텍스트 경로 일치).
+
+#### Generic Webhook Trigger (Job마다 다르게)
+1. Job 설정 → **Build Triggers** → **Generic Webhook Trigger** 체크
+2. **Token** 에 Job별 고유 값 (예: `sample-backend1`, `sample-backend2`, `sample-frontend`)
+3. **Optional filter** (이 경로가 요청 본문에 없으면 빌드하지 않음)
+   - **Expression**: 정규식으로 POST 본문 전체와 매칭 (GitHub `push` JSON 안에 파일 경로가 문자열로 포함됨)
+   - backend1 Job — **Text**: `$` (또는 플러그인 기본 post content 변수) / **Expression**:
+     `sample/sources/backend1/`
+   - backend2 Job — Expression:
+     `sample/sources/backend2/`
+   - frontend Job — Expression:
+     `sample/sources/frontend/`
+   (플러그인 버전에 따라 “Optional filter” 입력란이 **Regexp** 한 줄만 있는 경우, 본문에 위 문자열이 포함되는지 검사하면 됨.)
+4. 저장 후 Jenkins가 안내하는 **Invoke URL** 형태:
+   `http(s)://<JENKINS_HOST>/generic-webhook-trigger/invoke?token=<위에서_준_토큰>`
+
+#### GitHub 저장소 웹훅
+- Settings → Webhooks → Add webhook  
+- **Payload URL**: 위 invoke URL (Job마다 **토큰만 다르게** 하려면 **웹훅을 3개** 등록하는 것이 단순함)  
+- Content type: `application/json`  
+- Events: **Just the push event**  
+- GitHub가 Jenkins에 도달하려면 Jenkins가 **공개 URL**이어야 함. 로컬/클러스터만 있으면 ngrok, Cloudflare Tunnel 등으로 노출하거나, 사내에서 GitHub Enterprise / self-hosted Git 사용 시 네트워크만 맞추면 됨.
+
+#### 동작 확인
+- 해당 경로만 수정 후 push → 해당 Job만 트리거되는지 확인  
+- 다른 경로만 수정 후 push → 다른 Job은 트리거되지 않는지 확인
+
+#### 이미지 태그
+- 빌드마다 `git rev-parse --short=7 HEAD` 로 태그 + `latest` 도 함께 push  
+- Argo/Helm의 `values.yaml` 태그는 아직 수동이거나 3단계에서 `yq`로 자동 갱신
+
+#### Jenkinsfile 내 Docker Hub 네임스페이스
+- 각 Jenkinsfile 상단 `IMAGE_REPO = 'dannielkil/sample-...'` 를 실제 Hub 계정에 맞게 수정
