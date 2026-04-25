@@ -4,3 +4,4 @@ nodes:
   - role: control-plane # 마스터 노드 (Control Plane)
   - role: worker # 워커 노드 1
   - role: worker # 워커 노드 2
+  - role: worker # 워커 노드 3
