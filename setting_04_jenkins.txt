@@ -27,6 +27,20 @@ kubectl port-forward -n jenkins sts/jenkins 8081:8080
 kubectl exec --namespace jenkins -it svc/jenkins -c jenkins -- /bin/cat /run/secrets/additional/chart-admin-password && echo
 
 
+# 5. Jenkins pipeline 추가
+# 5.1) Jenkins Item 추가
+# 5.2) Pipeline: Stage View Plugin 추가
+# 5.3) Github Access Token 생성 및 Jenkins Credential 등록
+  - username : danniel.kil (*뒤에 도메인 안붙음)
+  - password : access token
+  - ID : github-push
+# 5.4) DockerHub Access Token 생성 및 Jenkins Credential 등록
+  - username : danniel.kil@gmail.com
+  - password : access token
+  - ID : dockerhub
+# 5.5) Jenkins 수동 배포 테스트
+
+
 ### 5. 삭제
 helm uninstall jenkins -n jenkins
 kubectl get pvc -n jenkins
