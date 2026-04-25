@@ -72,7 +72,7 @@ components:
     replicaCount: 1
     image:
       repository: dannielkil/sample-frontend
-      tag: 'e1603db'
+      tag: '6690c8c'
       pullPolicy: IfNotPresent
     containerPort: 80
     service:
