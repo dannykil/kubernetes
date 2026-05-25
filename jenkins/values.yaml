@@ -1,5 +1,6 @@
 controller:
-  adminPassword: admin
+  admin:
+    password: admin
   nodeSelector:
     role: storage
 

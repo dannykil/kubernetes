@@ -12,7 +12,7 @@ spec:
   sources:
     - repoURL: https://grafana.github.io/helm-charts
       chart: grafana
-      targetRevision: "*"
+
       helm:
         valueFiles:
           - $values/grafana/values.yaml

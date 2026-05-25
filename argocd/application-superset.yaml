@@ -9,13 +9,15 @@ metadata:
     argocd.argoproj.io/sync-wave: "2"
 spec:
   project: default
-  source:
-    repoURL: https://github.com/dannykil/kubernetes.git
-    path: superset
-    targetRevision: main
-    helm:
-      valueFiles:
-        - superset-values-dev.yaml
+  sources:
+    - repoURL: https://apache.github.io/superset
+      chart: superset
+      helm:
+        valueFiles:
+          - $values/superset/superset-values-dev.yaml
+    - repoURL: https://github.com/dannykil/kubernetes.git
+      targetRevision: main
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: superset

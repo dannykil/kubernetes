@@ -12,7 +12,7 @@ spec:
   sources:
     - repoURL: https://airflow.apache.org
       chart: airflow
-      targetRevision: "*"
+
       helm:
         valueFiles:
           - $values/airflow/values.yaml

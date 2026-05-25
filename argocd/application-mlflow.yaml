@@ -12,7 +12,7 @@ spec:
   sources:
     - repoURL: https://community-charts.github.io/helm-charts
       chart: mlflow
-      targetRevision: "*"
+
       helm:
         valueFiles:
           - $values/mlflow/values.yaml
