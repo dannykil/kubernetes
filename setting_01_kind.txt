@@ -1,6 +1,6 @@
 ### 1. kind 클러스터 생성 및 삭제
 # 1) 클러스터 생성
-kind create cluster --config ./kind-config.yaml 
+kind create cluster --config ./kubernetes/kind-config.yaml 
 
 # 2) 클러스터 삭제
 kind delete cluster
@@ -13,7 +13,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/a
 # [이슈] 대시보드 설치 시 TLS handshake timeout 에러 발생
 # [원인] 호스트/경로로 가는 HTTPS가 중간에서 막히거나 끊기는 네트워크 문제
 # [해결] 다른 네트워크에서 시도하거나 파일을 로컬로 받은 뒤 적용
-kubectl apply -f dashboard.yaml
+kubectl apply -f ./kubernetes/dashboard.yaml
 
 # 2) 접속을 위한 프록시 실행
 # [주의] 이 명령어를 실행하면 터미널이 대기 상태가 됩니다. 대시보드를 쓰는 동안 이 터미널은 그대로 두시고, 다른 작업을 하려면 새 터미널 탭을 여세요.
@@ -40,7 +40,7 @@ kubectl -n kubernetes-dashboard create token admin-user
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
 # 1.2) [해결] 직접 설치 : 개인 핫스팟과 같이 네트워크 변경 후 설치
 curl -L -o ingress-nginx-kind.yaml https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-kubectl apply -f ingress-nginx-kind.yaml
+kubectl apply -f ./kubernetes/ingress-nginx-kind.yaml
 
 
 # 2) 설치 후 컨트롤러가 뜰 때까지:
@@ -72,7 +72,45 @@ ingress:
 # 4) 브라우저에서 주소 쓰는 방법
 # 4.1) 방법 A: 포트 포워딩 (kind 설정 안 바꿀 때)
 kubectl port-forward -n ingress-nginx service/ingress-nginx-controller 8888:80
+http://sample.local:8888/
 
 # 4.2) 방법 B: kind에 80 포트 노출 (클러스터 재생성 필요)
 kind-config.yaml의 control-plane 노드에 extraPortMappings로 호스트 80 → 컨테이너 80을 열어 두면, kind 문서처럼 http://sample.local 만으로 접속할 수 있습니다. 클러스터를 다시 만들어야 해서, 이미 쓰는 클러스터가 있으면 방법 A가 부담이 적습니다.
 
+
+# 5) 디스크 용량 부족(no space left on device) 확인
+docker system df 2>/dev/null && echo "---" && docker exec kind-control-plane df -h /var/lib/kubelet 2>/dev/null || echo "kind-control-plane 컨테이너 이름 확인 필요"
+
+# 사용하지 않는 빌드 캐시, 중단된 컨테이너, dangling 이미지 등 한번에 정리
+docker system prune -f
+
+# 빌드 캐시만 전부 지우려면 (가장 효과적)
+docker builder prune -af
+
+# 위 두 가지 합쳐서 최대한 확보
+docker system prune -af
+
+
+
+
+# 6) 노드 리소스 사용량 (CPU/메모리 실시간) 확인
+# 6.1) kind에 metrics-server를 설치
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+# 6.2) kind는 자체 서명 인증서를 사용하기 때문에 --kubelet-insecure-tls 옵션을 추가해야 합니다. 아래처럼 patch해야 합니다.
+kubectl patch deployment metrics-server -n kube-system \
+  --type='json' \
+  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+
+# 6.3) 사용량 확인
+# 6.3.1) 노드 리소스 사용량 (CPU/메모리 실시간)
+kubectl top nodes
+
+# 6.3.2) 특정 노드 상세 정보 (할당 가능량 & 요청량)
+kubectl describe node kind-control-plane
+
+# 6.3.3) 모든 Pod의 CPU/메모리 사용량
+kubectl top pods -A
+
+# 6.3.4) 특정 네임스페이스만
+kubectl top pods -n airflow
