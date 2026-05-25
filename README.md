@@ -92,7 +92,13 @@ kubernetes/
 
 ## 최초 실행 방법
 
-### 1. Mac 호스트에 데이터 디렉토리 생성
+### 1. Mac /etc/hosts 설정 (최초 1회)
+
+```bash
+sudo sh -c 'echo "127.0.0.1 argocd.local airflow.local mlflow.local superset.local grafana.local prometheus.local jenkins.local minio.local" >> /etc/hosts'
+```
+
+### 2. Mac 호스트에 데이터 디렉토리 생성
 
 ```bash
 mkdir -p ~/kind-data/postgres
@@ -102,13 +108,13 @@ mkdir -p ~/kind-data/storage/prometheus
 mkdir -p ~/kind-data/storage/kafka
 ```
 
-### 2. kind 클러스터 생성
+### 3. kind 클러스터 생성
 
 ```bash
 kind create cluster --config ./kubernetes/kind-config.yaml
 ```
 
-### 3. ArgoCD 설치
+### 4. ArgoCD 설치
 
 ```bash
 kubectl create namespace argocd
@@ -117,7 +123,7 @@ helm repo update
 helm install argocd argo/argo-cd --namespace argocd
 ```
 
-### 4. 전체 서비스 한 번에 배포
+### 5. 전체 서비스 한 번에 배포
 
 ```bash
 kubectl apply -f argocd/application-of-apps.yaml -n argocd
@@ -131,11 +137,24 @@ wave 1: postgres (PostgreSQL DB), kafka-operator (Strimzi)
 wave 2: airflow, mlflow, superset, grafana, prometheus, jenkins, minio, kafka-cluster
 ```
 
-### 5. ArgoCD UI 접속
+### 6. 서비스 접속 (포트 포워딩 불필요)
+
+모든 서비스는 Ingress를 통해 도메인으로 직접 접속합니다.
+
+| 서비스     | URL                     |
+| ---------- | ----------------------- |
+| ArgoCD     | https://argocd.local    |
+| Airflow    | http://airflow.local    |
+| MLflow     | http://mlflow.local     |
+| Superset   | http://superset.local   |
+| Grafana    | http://grafana.local    |
+| Prometheus | http://prometheus.local |
+| Jenkins    | http://jenkins.local    |
+| MinIO      | http://minio.local      |
+
+ArgoCD 초기 비밀번호 확인:
 
 ```bash
-kubectl port-forward svc/argocd-server -n argocd 8080:443
-# https://localhost:8080  (admin / 초기 비밀번호 아래 명령으로 확인)
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
 ```
 

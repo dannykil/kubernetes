@@ -2,6 +2,19 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
   - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"  # ingress-nginx가 이 노드에 스케줄되도록 설정
+    extraPortMappings:
+      - containerPort: 80    # ingress-nginx HTTP → Mac 호스트 80 포트로 노출
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443   # ingress-nginx HTTPS → Mac 호스트 443 포트로 노출
+        hostPort: 443
+        protocol: TCP
   - role: worker
     labels:
       role: postgres        # PostgreSQL 전용 노드 (Airflow, MLflow, Superset, Grafana 메타데이터)
