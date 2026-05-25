@@ -9,13 +9,16 @@ metadata:
     argocd.argoproj.io/sync-wave: "2"
 spec:
   project: default
-  source:
-    repoURL: https://grafana.github.io/helm-charts
-    chart: grafana
-    targetRevision: "*"
-    helm:
-      valueFiles:
-        - https://raw.githubusercontent.com/dannykil/kubernetes/main/grafana/values.yaml
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: grafana
+      targetRevision: "*"
+      helm:
+        valueFiles:
+          - $values/grafana/values.yaml
+    - repoURL: https://github.com/dannykil/kubernetes.git
+      targetRevision: main
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: grafana

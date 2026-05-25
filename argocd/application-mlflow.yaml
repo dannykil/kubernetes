@@ -9,13 +9,16 @@ metadata:
     argocd.argoproj.io/sync-wave: "2"
 spec:
   project: default
-  source:
-    repoURL: https://community-charts.github.io/helm-charts
-    chart: mlflow
-    targetRevision: "*"
-    helm:
-      valueFiles:
-        - https://raw.githubusercontent.com/dannykil/kubernetes/main/mlflow/values.yaml
+  sources:
+    - repoURL: https://community-charts.github.io/helm-charts
+      chart: mlflow
+      targetRevision: "*"
+      helm:
+        valueFiles:
+          - $values/mlflow/values.yaml
+    - repoURL: https://github.com/dannykil/kubernetes.git
+      targetRevision: main
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: mlflow

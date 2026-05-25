@@ -126,7 +126,7 @@ kubectl apply -f argocd/application-of-apps.yaml -n argocd
 ArgoCD가 Git 저장소를 읽어 sync-wave 순서대로 자동 배포합니다.
 
 ```
-wave 0: postgres-storage (PV/PVC), storage (PV)
+wave 0: infra (dashboard, ingress-nginx), postgres-storage (PV/PVC), storage (PV)
 wave 1: postgres (PostgreSQL DB), kafka-operator (Strimzi)
 wave 2: airflow, mlflow, superset, grafana, prometheus, jenkins, minio, kafka-cluster
 ```
@@ -150,7 +150,7 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 kind delete cluster
 
 # 2. 클러스터 재생성
-kind create cluster --config ./kind-config.yaml
+kind create cluster --config ./kubernetes/kind-config.yaml
 
 # 3. ArgoCD 재설치 후 App of Apps 한 번 적용
 helm install argocd argo/argo-cd --namespace argocd

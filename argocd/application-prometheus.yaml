@@ -1,5 +1,4 @@
 # ArgoCD Application — Prometheus (kube-prometheus-stack)
-# storage PV가 먼저 생성된 후 배포되어야 함 (sync-wave: 2)
 # 적용: kubectl apply -f argocd/application-prometheus.yaml -n argocd
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -10,13 +9,16 @@ metadata:
     argocd.argoproj.io/sync-wave: "2"
 spec:
   project: default
-  source:
-    repoURL: https://prometheus-community.github.io/helm-charts
-    chart: kube-prometheus-stack
-    targetRevision: "*"
-    helm:
-      valueFiles:
-        - https://raw.githubusercontent.com/dannykil/kubernetes/main/prometheus/values.yaml
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: "*"
+      helm:
+        valueFiles:
+          - $values/prometheus/values.yaml
+    - repoURL: https://github.com/dannykil/kubernetes.git
+      targetRevision: main
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
@@ -26,4 +28,4 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      - ServerSideApply=true  # CRD 크기 제한 우회
+      - ServerSideApply=true

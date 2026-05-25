@@ -9,13 +9,16 @@ metadata:
     argocd.argoproj.io/sync-wave: "2"
 spec:
   project: default
-  source:
-    repoURL: https://charts.jenkins.io
-    chart: jenkins
-    targetRevision: "*"
-    helm:
-      valueFiles:
-        - https://raw.githubusercontent.com/dannykil/kubernetes/main/jenkins/values.yaml
+  sources:
+    - repoURL: https://charts.jenkins.io
+      chart: jenkins
+      targetRevision: "*"
+      helm:
+        valueFiles:
+          - $values/jenkins/values.yaml
+    - repoURL: https://github.com/dannykil/kubernetes.git
+      targetRevision: main
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: jenkins

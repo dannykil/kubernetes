@@ -1,5 +1,4 @@
 # ArgoCD Application — Strimzi Kafka Operator
-# Kafka CR(cluster.yaml)은 application-kafka-cluster.yaml 에서 별도 관리
 # 적용: kubectl apply -f argocd/application-kafka.yaml -n argocd
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -10,13 +9,16 @@ metadata:
     argocd.argoproj.io/sync-wave: "1"
 spec:
   project: default
-  source:
-    repoURL: https://strimzi.io/charts/
-    chart: strimzi-kafka-operator
-    targetRevision: "*"
-    helm:
-      valueFiles:
-        - https://raw.githubusercontent.com/dannykil/kubernetes/main/kafka/operator-values.yaml
+  sources:
+    - repoURL: https://strimzi.io/charts/
+      chart: strimzi-kafka-operator
+      targetRevision: "*"
+      helm:
+        valueFiles:
+          - $values/kafka/operator-values.yaml
+    - repoURL: https://github.com/dannykil/kubernetes.git
+      targetRevision: main
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: kafka

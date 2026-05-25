@@ -1,0 +1,27 @@
+# ArgoCD Application — 클러스터 인프라 (Kubernetes Dashboard + Ingress-nginx)
+# kind-config.yaml은 쿠버네티스 리소스가 아니므로 제외
+# 적용: kubectl apply -f argocd/application-infra.yaml -n argocd
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: infra
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/dannykil/kubernetes.git
+    path: kubernetes
+    targetRevision: main
+    directory:
+      exclude: "kind-config.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
