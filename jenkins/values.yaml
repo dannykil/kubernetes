@@ -1,0 +1,9 @@
+controller:
+  adminPassword: admin
+  nodeSelector:
+    role: storage
+
+persistence:
+  enabled: true
+  storageClass: storage-local
+  size: 10Gi

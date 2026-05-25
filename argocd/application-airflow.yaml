@@ -1,0 +1,27 @@
+# ArgoCD Application — Apache Airflow
+# 적용: kubectl apply -f argocd/application-airflow.yaml -n argocd
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: airflow
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://airflow.apache.org
+    chart: airflow
+    targetRevision: "*"
+    helm:
+      valueFiles:
+        - https://raw.githubusercontent.com/dannykil/kubernetes/main/airflow/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: airflow
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

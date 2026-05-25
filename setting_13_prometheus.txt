@@ -1,0 +1,129 @@
+
+# Prometheus — kube-prometheus-stack Helm Chart 설치 매뉴얼
+# (setting_04_jenkins.txt 와 같은 흐름: 네임스페이스 → repo → install → 접속 → 삭제/로그)
+#
+# 사전 요구사항
+# - Kubernetes 1.25 이상
+# - Helm 3.8 이상
+#
+# kube-prometheus-stack 은 Prometheus + Alertmanager + Grafana + kube-state-metrics +
+# node-exporter 를 한 번에 설치하는 커뮤니티 표준 차트입니다.
+# Grafana 만 따로 관리하고 싶다면 setting_14_grafana.txt 를 참고하세요.
+#
+# 공식 차트: https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack
+# Prometheus 문서: https://prometheus.io/docs/introduction/overview/
+#
+# 주요 포트
+#   9090 — Prometheus UI / API
+#   9093 — Alertmanager UI
+#   3000 — Grafana UI (번들 포함 시)
+
+
+# 1. 모니터링 네임스페이스 생성
+kubectl create namespace monitoring
+
+
+# 2. Prometheus Community Helm 레포지토리 추가
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+
+
+# 3. Helm으로 kube-prometheus-stack 설치 (릴리스 이름: prometheus)
+helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring
+
+# (선택) 차트/앱 버전 고정 예시
+# helm search repo prometheus-community/kube-prometheus-stack -l
+# helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+#   --namespace monitoring --version 61.9.0
+
+# (선택) Grafana 비밀번호 지정 및 기본 알림 룰 비활성화 예시
+# 예시 파일 prometheus-values-dev.yaml:
+# ---
+# grafana:
+#   adminPassword: grafana123
+#   persistence:
+#     enabled: false
+# prometheus:
+#   prometheusSpec:
+#     retention: 7d
+#     resources:
+#       requests:
+#         cpu: 100m
+#         memory: 256Mi
+# alertmanager:
+#   alertmanagerSpec:
+#     resources:
+#       requests:
+#         memory: 64Mi
+# defaultRules:
+#   create: true
+#   rules:
+#     etcd: false           # kind 클러스터에서 etcd 메트릭이 없으면 false 권장
+#     kubeScheduler: false  # kind 클러스터에서 스케줄러 메트릭이 없으면 false 권장
+# ---
+# helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+#   --namespace monitoring -f prometheus-values-dev.yaml
+
+
+# 4. 설치 확인 및 접속
+# 1) 파드·서비스 상태 확인
+kubectl get pods -n monitoring
+kubectl get svc -n monitoring
+
+# 2) 설치 시 Helm이 출력한 NOTES 확인
+helm get notes prometheus -n monitoring
+
+# 3) Prometheus UI 포트 포워딩 — 브라우저에서 http://localhost:9090 으로 접속
+kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
+
+# 4) Alertmanager UI 포트 포워딩 — 브라우저에서 http://localhost:9093 으로 접속
+kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-alertmanager 9093:9093
+
+# 5) (번들 Grafana) Grafana UI 포트 포워딩 — 브라우저에서 http://localhost:3000 으로 접속
+# 별도 Grafana 차트를 쓰는 경우 setting_14_grafana.txt 참고
+kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
+
+# 6) 번들 Grafana 로그인 정보 (기본값)
+# - 사용자: admin
+# - 비밀번호: prom-operator  (차트 기본값, values 에서 grafana.adminPassword 로 변경 가능)
+
+# 7) ServiceMonitor 로 커스텀 앱 스크레이핑 추가 예시
+# apiVersion: monitoring.coreos.com/v1
+# kind: ServiceMonitor
+# metadata:
+#   name: my-app-monitor
+#   namespace: monitoring
+# spec:
+#   selector:
+#     matchLabels:
+#       app: my-app
+#   namespaceSelector:
+#     matchNames:
+#       - default
+#   endpoints:
+#     - port: metrics
+#       interval: 30s
+
+
+### 5. 삭제
+helm uninstall prometheus -n monitoring
+# CRD 는 helm uninstall 시 자동 삭제되지 않습니다. 필요하면 수동 삭제:
+# kubectl get crd | grep monitoring.coreos.com | awk '{print $1}' | xargs kubectl delete crd
+kubectl get pvc -n monitoring
+kubectl delete pvc -n monitoring --all
+kubectl delete namespace monitoring
+
+
+### 6. 로그 확인
+# 1) 아직 메인 컨테이너가 안 떴을 때 (Init / ContainerCreating / Pending)
+kubectl describe pod <파드이름> -n monitoring
+
+# 2) Prometheus / Alertmanager / Grafana 로그
+kubectl get pods -n monitoring
+kubectl logs <파드이름> -n monitoring -f
+# 예: kubectl logs prometheus-prometheus-kube-prometheus-prometheus-0 -n monitoring -f
+# 예: kubectl logs prometheus-grafana-7f8c9d4b5-xxxxx -n monitoring -f
+
+# 3) CrashLoopBackOff — 이전 컨테이너 로그
+kubectl logs <파드이름> -n monitoring -c <컨테이너이름> --previous

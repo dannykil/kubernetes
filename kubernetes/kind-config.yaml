@@ -1,0 +1,17 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+  - role: worker
+    labels:
+      role: postgres        # PostgreSQL 전용 노드 (Airflow, MLflow, Superset, Grafana 메타데이터)
+    extraMounts:
+      - hostPath: /Users/danniel.kil/kind-data/postgres   # Mac 호스트 경로 (절대 경로 필수)
+        containerPath: /mnt/postgres-data                  # kind 노드 내부 경로
+  - role: worker
+    labels:
+      role: storage         # 파일시스템 기반 서비스 전용 노드 (Jenkins, MinIO, Prometheus, Kafka)
+    extraMounts:
+      - hostPath: /Users/danniel.kil/kind-data/storage    # Mac 호스트 경로 (절대 경로 필수)
+        containerPath: /mnt/storage-data                   # kind 노드 내부 경로
+  - role: worker            # 일반 워크로드용

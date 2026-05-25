@@ -1,0 +1,13 @@
+# 로컬 데이터 디렉토리 (kind 클러스터 영속성 데이터)
+kind-data/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

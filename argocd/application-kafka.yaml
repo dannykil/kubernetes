@@ -1,0 +1,53 @@
+# ArgoCD Application — Strimzi Kafka Operator
+# Kafka CR(cluster.yaml)은 application-kafka-cluster.yaml 에서 별도 관리
+# 적용: kubectl apply -f argocd/application-kafka.yaml -n argocd
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kafka-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://strimzi.io/charts/
+    chart: strimzi-kafka-operator
+    targetRevision: "*"
+    helm:
+      valueFiles:
+        - https://raw.githubusercontent.com/dannykil/kubernetes/main/kafka/operator-values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kafka
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+# ArgoCD Application — Kafka Cluster CR
+# Strimzi 오퍼레이터가 Running 된 후 배포되어야 함 (sync-wave: 2)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kafka-cluster
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/dannykil/kubernetes.git
+    path: kafka
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kafka
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

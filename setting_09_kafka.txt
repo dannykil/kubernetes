@@ -1,0 +1,141 @@
+
+# Apache Kafka — Strimzi Operator Helm Chart 설치 매뉴얼
+# (setting_04_jenkins.txt 와 같은 흐름: 네임스페이스 → repo → install → 접속 → 삭제/로그)
+#
+# 사전 요구사항
+# - Kubernetes 1.25 이상
+# - Helm 3.8 이상
+#
+# [주의] Bitnami Kafka 차트는 2025년 8월 28일부로 Docker Hub에서 이미지를 완전히 삭제함.
+#         버전 고정(--version 29.x)도 무의미 — docker pull bitnami/kafka:3.7.1-* 자체가 불가.
+#         대신 quay.io 무료 이미지를 사용하는 Strimzi 오퍼레이터를 권장.
+#         참고: https://github.com/bitnami/containers/issues/83267
+#
+# Strimzi 공식 문서: https://strimzi.io/quickstarts/
+# Strimzi Helm 차트: https://github.com/strimzi/strimzi-kafka-operator/tree/main/helm-charts
+
+
+# 1. Kafka 설치용 네임스페이스 생성
+kubectl create namespace kafka
+
+
+# 2. Strimzi Helm 레포지토리 추가
+helm repo add strimzi https://strimzi.io/charts/
+helm repo update
+
+
+# 3. Strimzi 오퍼레이터 설치 (릴리스 이름: strimzi-kafka-operator)
+# watchNamespaces 에 kafka 네임스페이스를 등록해야 Kafka CR 을 인식합니다.
+helm upgrade --install strimzi-kafka-operator strimzi/strimzi-kafka-operator \
+  --namespace kafka \
+  --set watchNamespaces="{kafka}"
+
+# (선택) 차트/앱 버전 고정 예시
+# helm search repo strimzi/strimzi-kafka-operator -l
+# helm upgrade --install strimzi-kafka-operator strimzi/strimzi-kafka-operator \
+#   --namespace kafka --version 0.45.0 --set watchNamespaces="{kafka}"
+
+
+# 4. Kafka 클러스터 CR 배포 (KRaft 모드, 단일 노드 — Kind 로컬용)
+# 오퍼레이터 파드가 Running 상태가 된 후 실행하세요.
+kubectl get pods -n kafka
+
+kubectl apply -n kafka -f - <<'EOF'
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: dual-role
+  labels:
+    strimzi.io/cluster: my-cluster
+spec:
+  replicas: 1
+  roles:
+    - controller
+    - broker
+  storage:
+    type: ephemeral
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: my-cluster
+  annotations:
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled
+spec:
+  kafka:
+    version: 3.9.0
+    metadataVersion: 3.9-IV0
+    listeners:
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+    config:
+      offsets.topic.replication.factor: 1
+      transaction.state.log.replication.factor: 1
+      transaction.state.log.min.isr: 1
+      default.replication.factor: 1
+      min.insync.replicas: 1
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+EOF
+
+
+# 5. 설치 확인 및 접속
+# 1) 파드·Kafka CR 상태 확인 (READY가 될 때까지 대기)
+kubectl get pods -n kafka
+kubectl get kafka -n kafka
+kubectl get kafkanodepool -n kafka
+
+# 2) 브로커 내부 접속 주소
+#    my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
+
+# 3) 클라이언트 파드로 메시지 송수신 테스트
+kubectl run kafka-client --restart=Never \
+  --image=quay.io/strimzi/kafka:0.45.0-kafka-3.9.0 \
+  --namespace kafka --command -- sleep infinity
+
+kubectl exec -it kafka-client -n kafka -- bash
+  # 파드 내부:
+  # bin/kafka-topics.sh --create --topic test \
+  #   --bootstrap-server my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
+  # bin/kafka-console-producer.sh --topic test \
+  #   --bootstrap-server my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
+  # bin/kafka-console-consumer.sh --topic test --from-beginning \
+  #   --bootstrap-server my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
+
+# 4) (선택) Kafka UI — 브라우저에서 http://localhost:8083 으로 접속
+helm repo add kafka-ui https://provectus.github.io/kafka-ui-charts
+helm upgrade --install kafka-ui kafka-ui/kafka-ui \
+  --namespace kafka \
+  --set envs.config.KAFKA_CLUSTERS_0_NAME=local \
+  --set envs.config.KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
+
+kubectl port-forward -n kafka svc/kafka-ui 8083:80
+
+
+### 6. 삭제
+kubectl delete kafka my-cluster -n kafka
+kubectl delete kafkanodepool dual-role -n kafka
+helm uninstall strimzi-kafka-operator -n kafka
+# (kafka-ui 설치한 경우)
+helm uninstall kafka-ui -n kafka
+kubectl get pvc -n kafka
+kubectl delete pvc -n kafka --all
+kubectl delete namespace kafka
+
+
+### 7. 로그 확인
+# 1) 아직 메인 컨테이너가 안 떴을 때 (Init / ContainerCreating / Pending)
+kubectl describe pod <파드이름> -n kafka
+
+# 2) 오퍼레이터 / Kafka 브로커 로그
+kubectl get pods -n kafka
+kubectl logs <파드이름> -n kafka -f
+# 예: kubectl logs strimzi-cluster-operator-7f8c9d4b5-xxxxx -n kafka -f
+# 예: kubectl logs my-cluster-dual-role-0 -n kafka -f
+
+# 3) CrashLoopBackOff — 이전 컨테이너 로그
+kubectl logs <파드이름> -n kafka -c <컨테이너이름> --previous

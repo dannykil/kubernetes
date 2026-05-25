@@ -1,0 +1,103 @@
+
+# MinIO — 공식 Helm Chart 설치 매뉴얼
+# (setting_04_jenkins.txt 와 같은 흐름: 네임스페이스 → repo → install → 접속 → 삭제/로그)
+#
+# 사전 요구사항
+# - Kubernetes 1.25 이상
+# - Helm 3.8 이상
+# - (선택) PersistentVolume 프로비저너 — 데이터 영속성을 위해 권장
+#
+# 공식 문서: https://min.io/docs/minio/kubernetes/upstream/index.html
+# Helm 차트: https://github.com/minio/minio/tree/master/helm/minio
+#
+# MinIO 포트
+#   9000 — S3 API (SDK / CLI / MLflow 등에서 사용)
+#   9001 — Web Console (브라우저)
+
+
+# 1. MinIO 설치용 네임스페이스 생성
+kubectl create namespace minio
+
+
+# 2. MinIO Helm 레포지토리 추가
+helm repo add minio https://charts.min.io/
+helm repo update
+
+
+# 3. Helm으로 MinIO 설치 (릴리스 이름: minio)
+# [주의] rootUser 최소 3자, rootPassword 최소 8자 이상 (예: admin → 거부됨)
+# [주의] 기본값은 분산 모드(16 레플리카 + PVC 16개)라 Kind에서는 모두 Pending 됨.
+#         Kind / 로컬에서는 반드시 mode=standalone + persistence.enabled=false 로 설치할 것.
+helm upgrade --install minio minio/minio \
+  --namespace minio \
+  --set rootUser=minioadmin \
+  --set rootPassword=minioadmin \
+  --set mode=standalone \
+  --set replicas=1 \
+  --set persistence.enabled=false \
+  --set resources.requests.memory=256Mi
+
+# (선택) 차트/앱 버전 고정 예시
+# helm search repo minio/minio -l
+# helm upgrade --install minio minio/minio --namespace minio --version 5.2.0 \
+#   --set rootUser=minioadmin --set rootPassword=minioadmin123
+
+# (선택) Kind / 로컬 환경에서 PVC 없이 단일 파드로 실행
+# 예시 파일 minio-values-dev.yaml:
+# ---
+# mode: standalone
+# replicas: 1
+# persistence:
+#   enabled: false
+# resources:
+#   requests:
+#     memory: 256Mi
+# rootUser: minioadmin
+# rootPassword: minioadmin123
+# ---
+# helm upgrade --install minio minio/minio --namespace minio -f minio-values-dev.yaml
+
+
+# 4. 설치 확인 및 접속
+# 1) 파드 상태 확인
+kubectl get pods -n minio
+
+# 2) 설치 시 Helm이 출력한 NOTES 확인 (연결 정보)
+helm get notes minio -n minio
+
+# 3) Web Console 포트 포워딩 — 브라우저에서 http://localhost:9001 로 접속
+kubectl port-forward -n minio svc/minio-console 9001:9001
+
+# 4) S3 API 포트 포워딩 (SDK / mc CLI 연결용)
+kubectl port-forward -n minio svc/minio 9000:9000
+
+# 5) mc (MinIO Client) CLI로 연결 테스트
+# mc alias set local http://localhost:9000 minioadmin minioadmin123
+# mc ls local
+# mc mb local/test-bucket
+# mc cp <로컬파일> local/test-bucket/
+
+# 6) 로그인 정보
+# - 사용자: minioadmin (설치 시 지정한 rootUser)
+# - 비밀번호: minioadmin123 (설치 시 지정한 rootPassword)
+# - 운영 환경에서는 반드시 시크릿으로 관리하세요.
+
+
+### 5. 삭제
+helm uninstall minio -n minio
+kubectl get pvc -n minio
+kubectl delete pvc -n minio --all
+kubectl delete namespace minio
+
+
+### 6. 로그 확인
+# 1) 아직 메인 컨테이너가 안 떴을 때 (Init / ContainerCreating / Pending)
+kubectl describe pod <파드이름> -n minio
+
+# 2) MinIO 파드 로그
+kubectl get pods -n minio
+kubectl logs <파드이름> -n minio -f
+# 예: kubectl logs minio-0 -n minio -f
+
+# 3) CrashLoopBackOff — 이전 컨테이너 로그
+kubectl logs <파드이름> -n minio -c <컨테이너이름> --previous

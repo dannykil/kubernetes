@@ -1,0 +1,37 @@
+bootstrapScript: |
+  #!/bin/bash
+  uv pip install --python /app/.venv/bin/python psycopg2-binary
+  if [ ! -f ~/bootstrap ]; then
+    echo "Running Superset bootstrap"
+    touch ~/bootstrap
+  fi
+
+configOverrides:
+  secret: |
+    SECRET_KEY = 'CFr6xu1LOd2Ef6VtyNARg/x/5s3DQE8t3JlHR7vBrNsxx41TU4xSjtDS'
+  connections: |
+    SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://postgres:postgres@postgres-postgresql.postgres.svc.cluster.local:5432/superset'
+
+supersetNode:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+supersetWorker:
+  replicaCount: 1
+
+redis:
+  enabled: true
+
+postgresql:
+  enabled: false
+
+init:
+  adminUser:
+    username: admin
+    password: admin
+    email: admin@superset.com
+    firstName: Superset
+    lastName: Admin

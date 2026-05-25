@@ -1,0 +1,102 @@
+
+# MLflow — Community Helm Chart 설치 매뉴얼
+# (setting_04_jenkins.txt 와 같은 흐름: 네임스페이스 → repo → install → 접속 → 삭제/로그)
+#
+# 사전 요구사항
+# - Kubernetes 1.25 이상
+# - Helm 3.8 이상
+# - (선택) MinIO(S3) 등 아티팩트 스토어, PostgreSQL 등 백엔드 스토어가 있으면 영속성 확보 가능
+#
+# Helm 차트: https://github.com/community-charts/helm-charts (community-charts/mlflow)
+# MLflow 공식 문서: https://mlflow.org/docs/latest/index.html
+#
+# MLflow 포트
+#   5000 — Tracking Server UI / REST API
+
+
+# 1. MLflow 설치용 네임스페이스 생성
+kubectl create namespace mlflow
+
+
+# 2. Community Charts Helm 레포지토리 추가
+helm repo add community-charts https://community-charts.github.io/helm-charts
+helm repo update
+
+
+# 3. Helm으로 MLflow 설치 (릴리스 이름: mlflow)
+helm upgrade --install mlflow community-charts/mlflow --namespace mlflow
+
+# (선택) 차트/앱 버전 고정 예시
+# helm search repo community-charts/mlflow -l
+# helm upgrade --install mlflow community-charts/mlflow --namespace mlflow --version 0.7.19
+
+# (선택) MinIO(S3) 아티팩트 스토어 + PostgreSQL 백엔드 연동 예시
+# 예시 파일 mlflow-values-dev.yaml:
+# ---
+# backendStore:
+#   postgres:
+#     enabled: true
+#     host: "postgresql.mlflow.svc.cluster.local"
+#     port: 5432
+#     database: mlflow
+#     user: mlflow
+#     password: mlflow
+# artifactRoot:
+#   s3:
+#     enabled: true
+#     bucket: mlflow
+#     path: artifacts
+#     awsAccessKeyId: minioadmin
+#     awsSecretAccessKey: minioadmin123
+# extraEnvVars:
+#   MLFLOW_S3_ENDPOINT_URL: "http://minio.minio.svc.cluster.local:9000"
+# ---
+# helm upgrade --install mlflow community-charts/mlflow --namespace mlflow -f mlflow-values-dev.yaml
+
+# (선택) Kind / 로컬 환경에서 SQLite + 로컬 스토리지로 최소 실행
+# 예시 파일 mlflow-values-local.yaml:
+# ---
+# backendStore:
+#   databaseMigration: true
+#   databaseConnectionCheck: true
+# serviceMonitor:
+#   enabled: false
+# ---
+# helm upgrade --install mlflow community-charts/mlflow --namespace mlflow -f mlflow-values-local.yaml
+
+
+# 4. 설치 확인 및 접속
+# 1) 파드 상태 확인
+kubectl get pods -n mlflow
+
+# 2) 설치 시 Helm이 출력한 NOTES 확인
+helm get notes mlflow -n mlflow
+
+# 3) 포트 포워딩 — 브라우저에서 http://localhost:5000 으로 접속
+kubectl port-forward -n mlflow svc/mlflow 5000:80
+
+
+# 4) MLflow Tracking URI 설정 (로컬 Python 환경에서)
+# import mlflow
+# mlflow.set_tracking_uri("http://localhost:5000")
+# mlflow.set_experiment("my-experiment")
+
+
+### 5. 삭제
+helm uninstall mlflow -n mlflow
+kubectl get pvc -n mlflow
+kubectl delete pvc -n mlflow --all
+kubectl delete namespace mlflow
+
+
+### 6. 로그 확인
+# 1) 아직 메인 컨테이너가 안 떴을 때 (Init / ContainerCreating / Pending)
+kubectl describe pod <파드이름> -n mlflow
+
+# 2) MLflow Tracking Server 로그
+kubectl get pods -n mlflow
+kubectl logs <파드이름> -n mlflow -f
+# 예: kubectl logs mlflow-7f8c9d4b5-xxxxx -n mlflow -f
+
+# 3) CrashLoopBackOff — 이전 컨테이너 로그
+kubectl logs <파드이름> -n mlflow -c <컨테이너이름> --previous

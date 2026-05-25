@@ -1,0 +1,21 @@
+adminUser: admin
+adminPassword: grafana123
+
+database:
+  type: postgres
+  host: postgres-postgresql.postgres.svc.cluster.local:5432
+  name: grafana
+  user: postgres
+  password: postgres
+
+persistence:
+  enabled: false
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090
+        isDefault: true

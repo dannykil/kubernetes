@@ -1,0 +1,111 @@
+
+# Apache Superset — 공식 Helm Chart 설치 매뉴얼
+# (setting_04_jenkins.txt 와 같은 흐름: 네임스페이스 → repo → install → 접속 → 삭제/로그)
+#
+# 사전 요구사항
+# - Kubernetes 1.25 이상
+# - Helm 3.8 이상
+# - (선택) PostgreSQL / MySQL 외부 DB 연동 시 영속적 메타데이터 관리 가능
+#
+# 공식 Helm 차트: https://github.com/apache/superset/tree/master/helm/superset
+# Apache Superset 문서: https://superset.apache.org/docs/installation/kubernetes
+#
+# Superset 포트
+#   8088 — Web UI
+
+
+# 1. Superset 설치용 네임스페이스 생성
+kubectl create namespace superset
+
+
+# 2. Apache Superset Helm 레포지토리 추가
+helm repo add superset https://apache.github.io/superset
+helm repo update
+
+
+# 3. Helm으로 Superset 설치 (릴리스 이름: superset)
+#
+# ⚠️  Superset 5.0+ 필수 설정 (values 파일 사용 권장)
+#
+# [이슈 1] SECRET_KEY: 5.0부터 기본 키 사용 시 기동 자체를 거부함
+#   → configOverrides.secret 에 반드시 지정
+#
+# [이슈 2] psycopg2 없음: 5.0 이미지에 PostgreSQL 드라이버가 기본 미포함
+#   → pip 도 없고 uv 를 통해 설치해야 함
+#   → bootstrapScript 에서 uv pip install --python /app/.venv/bin/python psycopg2-binary 실행
+#
+# 예시 파일: superset/superset-values-dev.yaml
+# ---
+# bootstrapScript: |
+#   #!/bin/bash
+#   uv pip install --python /app/.venv/bin/python psycopg2-binary
+#   if [ ! -f ~/bootstrap ]; then echo "Running Superset bootstrap"; touch ~/bootstrap; fi
+#
+# configOverrides:
+#   secret: |
+#     SECRET_KEY = '<openssl rand -base64 42 로 생성>'
+#
+# supersetNode:
+#   replicaCount: 1
+#   resources:
+#     requests:
+#       cpu: 100m
+#       memory: 256Mi
+# supersetWorker:
+#   replicaCount: 1
+# redis:
+#   enabled: true
+# postgresql:
+#   enabled: true
+# init:
+#   adminUser:
+#     username: admin
+#     password: admin
+#     email: admin@superset.com
+#     firstName: Superset
+#     lastName: Admin
+# ---
+
+# 3.1) SECRET_KEY 생성
+openssl rand -base64 42
+
+# 3.2) superset/superset-values-dev.yaml 작성 후 설치
+helm upgrade --install superset superset/superset --namespace superset -f ./superset/superset-values-dev.yaml
+
+
+# 4. 설치 확인 및 접속
+# 1) 파드·잡 상태 확인 (초기에는 init-db 잡이 먼저 실행됩니다)
+kubectl get pods -n superset
+kubectl get jobs -n superset
+
+# 2) 설치 시 Helm이 출력한 NOTES 확인
+helm get notes superset -n superset
+
+# 3) 포트 포워딩 — 브라우저에서 http://localhost:8088 로 접속
+kubectl port-forward -n superset svc/superset 8088:8088
+
+# 4) 로그인 정보 (기본값)
+# - 사용자: admin
+# - 비밀번호: admin
+# - 운영 환경에서는 init.adminUser.password 를 반드시 변경하세요.
+
+
+### 5. 삭제
+helm uninstall superset -n superset
+kubectl get pvc -n superset
+kubectl delete pvc -n superset --all
+kubectl delete namespace superset
+
+
+### 6. 로그 확인
+# 1) 아직 메인 컨테이너가 안 떴을 때 (Init / ContainerCreating / Pending)
+kubectl describe pod <파드이름> -n superset
+
+# 2) Superset 웹 서버 / 워커 로그
+kubectl get pods -n superset
+kubectl logs <파드이름> -n superset -f
+# 예: kubectl logs superset-7f8c9d4b5-xxxxx -n superset -f
+# 예: kubectl logs superset-worker-7f8c9d4b5-xxxxx -n superset -f
+
+# 3) CrashLoopBackOff — 이전 컨테이너 로그
+kubectl logs <파드이름> -n superset -c <컨테이너이름> --previous

@@ -1,0 +1,22 @@
+# ArgoCD Application — 파일시스템 기반 서비스 PV 모음 (Jenkins, MinIO, Prometheus, Kafka)
+# 적용: kubectl apply -f argocd/application-storage.yaml -n argocd
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: storage
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/dannykil/kubernetes.git
+    path: storage
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

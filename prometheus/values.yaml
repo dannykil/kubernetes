@@ -1,0 +1,39 @@
+grafana:
+  enabled: false  # 별도 Grafana chart 사용 (grafana/values.yaml)
+
+prometheus:
+  prometheusSpec:
+    nodeSelector:
+      role: storage
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: storage-local
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+    retention: 7d
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+alertmanager:
+  alertmanagerSpec:
+    nodeSelector:
+      role: storage
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: storage-local
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 2Gi
+
+# kind 클러스터에서 존재하지 않는 메트릭 룰 비활성화
+defaultRules:
+  rules:
+    etcd: false
+    kubeScheduler: false

@@ -1,0 +1,27 @@
+# ArgoCD Application — Apache Superset
+# 적용: kubectl apply -f argocd/application-superset.yaml -n argocd
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: superset
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/dannykil/kubernetes.git
+    path: superset
+    targetRevision: main
+    helm:
+      valueFiles:
+        - superset-values-dev.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: superset
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

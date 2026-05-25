@@ -1,0 +1,31 @@
+# App of Apps — 모든 서비스를 한 번에 배포
+#
+# 사용법:
+#   1. kind 클러스터 생성 후 ArgoCD 설치
+#   2. 아래 명령 한 번으로 전체 서비스 배포
+#      kubectl apply -f argocd/application-of-apps.yaml -n argocd
+#
+# 배포 순서 (sync-wave):
+#   wave 0 : postgres-storage (PV/PVC), storage (PV)
+#   wave 1 : postgres (PostgreSQL), kafka-operator (Strimzi)
+#   wave 2 : airflow, mlflow, superset, grafana, prometheus, jenkins, minio, kafka-cluster
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app-of-apps
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/dannykil/kubernetes.git
+    path: argocd
+    targetRevision: main
+    directory:
+      exclude: "application-of-apps.yaml"  # 자기 자신 제외
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

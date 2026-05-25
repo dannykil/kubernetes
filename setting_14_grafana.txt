@@ -1,0 +1,119 @@
+
+# Grafana — 공식 Helm Chart 설치 매뉴얼
+# (setting_04_jenkins.txt 와 같은 흐름: 네임스페이스 → repo → install → 접속 → 삭제/로그)
+#
+# 사전 요구사항
+# - Kubernetes 1.25 이상
+# - Helm 3.8 이상
+#
+# kube-prometheus-stack 으로 Prometheus 를 설치했다면 Grafana 가 이미 번들로 포함됩니다.
+# 이 파일은 Grafana 를 독립적으로 설치하거나 별도 관리할 때 사용하세요.
+# (kube-prometheus-stack 번들 Grafana 접속은 setting_13_prometheus.txt 5번 항목 참고)
+#
+# 공식 차트: https://github.com/grafana/helm-charts/tree/main/charts/grafana
+# Grafana 문서: https://grafana.com/docs/grafana/latest/setup-grafana/installation/kubernetes/
+#
+# 주요 포트
+#   3000 — Grafana Web UI
+
+
+# 1. Grafana 설치용 네임스페이스 생성
+# 이미 monitoring 네임스페이스가 있으면 그곳에 설치해도 됩니다.
+kubectl create namespace grafana
+
+
+# 2. Grafana 공식 Helm 레포지토리 추가
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo update
+
+
+# 3. Helm으로 Grafana 설치 (릴리스 이름: grafana)
+helm upgrade --install grafana grafana/grafana --namespace grafana
+
+# (선택) 차트/앱 버전 고정 예시
+# helm search repo grafana/grafana -l
+# helm upgrade --install grafana grafana/grafana --namespace grafana --version 8.4.4
+
+# (선택) 관리자 비밀번호 및 Prometheus 데이터소스 사전 구성 예시
+# 예시 파일 grafana-values-dev.yaml:
+# ---
+# adminUser: admin
+# adminPassword: grafana123
+# persistence:
+#   enabled: false
+# datasources:
+#   datasources.yaml:
+#     apiVersion: 1
+#     datasources:
+#       - name: Prometheus
+#         type: prometheus
+#         url: http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090
+#         isDefault: true
+# dashboardProviders:
+#   dashboardproviders.yaml:
+#     apiVersion: 1
+#     providers:
+#       - name: default
+#         folder: ''
+#         type: file
+#         disableDeletion: false
+#         options:
+#           path: /var/lib/grafana/dashboards/default
+# dashboards:
+#   default:
+#     kubernetes-cluster:
+#       gnetId: 7249    # Grafana.com 대시보드 ID
+#       revision: 1
+#       datasource: Prometheus
+# ---
+# helm upgrade --install grafana grafana/grafana --namespace grafana -f grafana-values-dev.yaml
+
+
+# 4. 설치 확인 및 접속
+# 1) 파드 상태 확인
+kubectl get pods -n grafana
+
+# 2) 설치 시 Helm이 출력한 NOTES 확인
+helm get notes grafana -n grafana
+
+# 3) 포트 포워딩 — 브라우저에서 http://localhost:3000 으로 접속
+kubectl port-forward -n grafana svc/grafana 3000:80
+
+# 4) 로그인 정보 확인
+# 사용자: admin // admin123
+# 비밀번호: 아래 명령으로 확인 (차트가 Secret 에 자동 생성)
+kubectl get secret --namespace grafana grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
+kubectl get secret --namespace monitoring prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
+
+# 5) Prometheus 데이터소스 연결 (UI에서 수동 추가 시)
+# Configuration → Data sources → Add data source → Prometheus
+# URL: http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090
+# (네임스페이스와 릴리스 이름에 따라 URL이 다를 수 있습니다)
+
+# 6) 대시보드 임포트 (UI에서)
+# Dashboards → Import → Grafana.com ID 입력
+# 추천 대시보드 ID:
+#   315  — Kubernetes cluster monitoring
+#   3119 — Kubernetes Deployment Statefulset Daemonset metrics
+#   6417 — Kubernetes Cluster (Prometheus)
+#   7249 — Kubernetes Cluster
+
+
+### 5. 삭제
+helm uninstall grafana -n grafana
+kubectl get pvc -n grafana
+kubectl delete pvc -n grafana --all
+kubectl delete namespace grafana
+
+
+### 6. 로그 확인
+# 1) 아직 메인 컨테이너가 안 떴을 때 (Init / ContainerCreating / Pending)
+kubectl describe pod <파드이름> -n grafana
+
+# 2) Grafana 파드 로그
+kubectl get pods -n grafana
+kubectl logs <파드이름> -n grafana -f
+# 예: kubectl logs grafana-7f8c9d4b5-xxxxx -n grafana -f
+
+# 3) CrashLoopBackOff — 이전 컨테이너 로그
+kubectl logs <파드이름> -n grafana -c <컨테이너이름> --previous

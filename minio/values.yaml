@@ -1,0 +1,16 @@
+rootUser: minioadmin
+rootPassword: minioadmin123
+mode: standalone
+replicas: 1
+
+persistence:
+  enabled: true
+  storageClass: storage-local
+  size: 20Gi
+
+resources:
+  requests:
+    memory: 256Mi
+
+nodeSelector:
+  role: storage

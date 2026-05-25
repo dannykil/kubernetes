@@ -1,0 +1,15 @@
+auth:
+  postgresPassword: postgres
+
+primary:
+  persistence:
+    existingClaim: postgres-pvc
+  nodeSelector:
+    role: postgres
+
+initdbScripts:
+  init-databases.sql: |
+    CREATE DATABASE airflow;
+    CREATE DATABASE mlflow;
+    CREATE DATABASE superset;
+    CREATE DATABASE grafana;

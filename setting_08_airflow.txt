@@ -1,0 +1,98 @@
+
+# Apache Airflow 3.x — 공식 Helm Chart 설치 매뉴얼
+# (setting_04_jenkins.txt 와 같은 흐름: 네임스페이스 → repo → install → 접속 → 삭제/로그)
+#
+# 사전 요구사항 (공식 문서 기준)
+# - Kubernetes 1.30 이상
+# - Helm 3.10 이상
+# - (선택) 스토리지 클래스가 있는 경우 로그/메타데이터 PVC 프로비저닝이 수월함
+#
+# 공식 문서: https://airflow.apache.org/docs/helm-chart/stable/index.html
+# Parameters: https://airflow.apache.org/docs/helm-chart/stable/parameters-ref.html
+#
+# Airflow 3에서 UI는 예전 webserver가 아니라 api-server(기본 포트 8080)에서 제공됩니다.
+
+
+# 1. Airflow 설치용 네임스페이스 생성
+kubectl create namespace airflow
+
+
+# 2. Apache Airflow Helm 레포지토리 추가
+helm repo update
+
+
+# 3. Helm으로 Airflow 설치 (릴리스 이름: airflow)
+# --create-namespace 는 이미 네임스페이스가 있으면 생략해도 됩니다.
+helm upgrade --install airflow apache-airflow/airflow --namespace airflow
+
+# (선택) 차트/앱 버전 고정 예시 — 설치 전에 `helm search repo apache-airflow/airflow -l` 로 확인
+# helm upgrade --install airflow apache-airflow/airflow --namespace airflow --version 1.20.0
+
+# (선택) values 파일로 커스터마이징
+# helm upgrade --install airflow apache-airflow/airflow --namespace airflow -f airflow-values.yaml
+
+
+# 4. 설치 확인 및 대시보드(UI) 접속
+# 1) 파드·잡 상태 확인 (초기에는 migrate / create-user 잡이 먼저 돌 수 있음)
+kubectl get pods -n airflow
+kubectl get jobs -n airflow
+
+# 2) 설치 시 Helm이 출력한 NOTES 확인 (포트포워드 예문이 여기에 나옵니다)
+helm get notes airflow -n airflow
+
+# 3) 포트 포워딩 — Airflow 3: api-server 서비스 → 로컬 포트 (예: 8082 → 파드 8080)
+# Argo CD 등이 로컬 8080을 쓰는 경우 8082 처럼 다른 로컬 포트를 쓰면 됩니다.
+# 브라우저에서 **http://localhost:8082** 로 접속 (아래 명령과 포트를 맞출 것)
+kubectl port-forward -n airflow svc/airflow-api-server 8082:8080
+
+# 4) 로그인 — 기본 설치에서는 createUserJob 이 admin 계정을 만듭니다.
+# 기본값(차트 values): 사용자 admin / 비밀번호 admin
+# 운영 환경에서는 반드시 createUserJob.defaultUser.* 또는 별도 인증/Secret 전략으로 변경하세요.
+
+
+### 5. Kind / 로컬 클러스터에서 리소스를 줄이고 싶을 때 (선택)
+# 기본 차트 설정은 CeleryExecutor 등으로 구성 요소가 많습니다.
+# 가벼운 실습용으로는 values 에서 executor 만 LocalExecutor 로 바꾸는 것부터 검토합니다.
+#
+# 예시 파일 airflow-values-dev.yaml:
+# ---
+# executor: "LocalExecutor"
+# ---
+# helm upgrade --install airflow apache-airflow/airflow --namespace airflow -f airflow-values-dev.yaml
+
+
+### 6. Argo CD / Flux / Terraform 으로 설치할 때 (필수 values)
+# GitOps 도구는 Job 훅 처리 방식이 달라 DB 마이그레이션·초기 사용자 생성이 건너뛰어질 수 있습니다.
+# 공식 문서에 따라 아래를 values 에 포함하세요.
+#
+# createUserJob:
+#   useHelmHooks: false
+#   applyCustomEnv: false
+# migrateDatabaseJob:
+#   useHelmHooks: false
+#   applyCustomEnv: false
+#
+# helm install / upgrade 시 --wait 를 쓰는 경우에도 동일 권고가 있습니다.
+# Argo CD 자동 마이그레이션 패턴은 공식 문서의 migrateDatabaseJob.jobAnnotations 예시를 참고하세요.
+
+
+### 7. 삭제
+helm uninstall airflow -n airflow
+kubectl get pvc -n airflow
+# 남은 PVC / 시크릿(훅으로 만든 리소스 등)이 있으면 필요 시 수동 정리
+kubectl delete pvc -n airflow --all
+kubectl delete namespace airflow
+
+
+### 8. 로그 확인
+# 1) 아직 메인 컨테이너가 안 떴을 때 (Init / ContainerCreating / Pending)
+kubectl describe pod <파드이름> -n airflow
+
+# 2) 스케줄러 / API 서버 / (Celery 사용 시) 워커 로그 — 먼저 파드 이름 확인
+kubectl get pods -n airflow
+kubectl logs <파드이름> -n airflow -f
+# 예: kubectl logs airflow-scheduler-7f8c9d4b5-xxxxx -n airflow -f
+# 예: kubectl logs airflow-api-server-7f8c9d4b5-xxxxx -n airflow -f
+
+# 3) CrashLoopBackOff — 이전 컨테이너 로그
+kubectl logs <파드이름> -n airflow -c <컨테이너이름> --previous

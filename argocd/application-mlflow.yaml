@@ -1,0 +1,27 @@
+# ArgoCD Application — MLflow
+# 적용: kubectl apply -f argocd/application-mlflow.yaml -n argocd
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mlflow
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://community-charts.github.io/helm-charts
+    chart: mlflow
+    targetRevision: "*"
+    helm:
+      valueFiles:
+        - https://raw.githubusercontent.com/dannykil/kubernetes/main/mlflow/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mlflow
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

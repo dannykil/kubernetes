@@ -1,0 +1,22 @@
+executor: LocalExecutor
+
+postgresql:
+  enabled: false
+
+data:
+  metadataConnection:
+    user: postgres
+    pass: postgres
+    host: postgres-postgresql.postgres.svc.cluster.local
+    port: 5432
+    db: airflow
+    protocol: postgresql
+
+# ArgoCD GitOps 환경에서 DB 마이그레이션 Job이 정상 동작하도록 설정
+createUserJob:
+  useHelmHooks: false
+  applyCustomEnv: false
+
+migrateDatabaseJob:
+  useHelmHooks: false
+  applyCustomEnv: false

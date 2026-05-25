@@ -1,0 +1,27 @@
+# ArgoCD Application — Grafana
+# 적용: kubectl apply -f argocd/application-grafana.yaml -n argocd
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: grafana
+    targetRevision: "*"
+    helm:
+      valueFiles:
+        - https://raw.githubusercontent.com/dannykil/kubernetes/main/grafana/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: grafana
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
