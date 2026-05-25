@@ -34,7 +34,7 @@ pipeline {
   environment {
     IMAGE_REPO = 'dannielkil/sample-backend2'
     CONTEXT_DIR = 'sample/sources/backend2'
-    DOCKERHUB_CREDENTIALS = 'dockerhub'
+    DOCKERHUB_CREDENTIALS = 'dockerhub-push'
     GIT_PUSH_CREDENTIALS = 'github-push'
     GIT_REPO_SLUG = 'dannykil/kubernetes'
   }
