@@ -11,6 +11,9 @@ spec:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
   storageClassName: storage-local
+  claimRef:
+    namespace: jenkins
+    name: jenkins
   local:
     path: /mnt/storage-data/jenkins
   nodeAffinity:
