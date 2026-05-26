@@ -12,6 +12,7 @@ metadata:
   name: argocd-ingress
   namespace: argocd
   annotations:
+    argocd.argoproj.io/sync-wave: "1"
     nginx.ingress.kubernetes.io/ssl-passthrough: "true"
     nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
 spec:
@@ -33,6 +34,8 @@ kind: Ingress
 metadata:
   name: airflow-ingress
   namespace: airflow
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   ingressClassName: nginx
   rules:
@@ -52,6 +55,8 @@ kind: Ingress
 metadata:
   name: mlflow-ingress
   namespace: mlflow
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   ingressClassName: nginx
   rules:
@@ -71,6 +76,8 @@ kind: Ingress
 metadata:
   name: superset-ingress
   namespace: superset
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   ingressClassName: nginx
   rules:
@@ -90,6 +97,8 @@ kind: Ingress
 metadata:
   name: grafana-ingress
   namespace: grafana
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   ingressClassName: nginx
   rules:
@@ -109,6 +118,8 @@ kind: Ingress
 metadata:
   name: prometheus-ingress
   namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   ingressClassName: nginx
   rules:
@@ -128,6 +139,8 @@ kind: Ingress
 metadata:
   name: jenkins-ingress
   namespace: jenkins
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   ingressClassName: nginx
   rules:
@@ -147,6 +160,8 @@ kind: Ingress
 metadata:
   name: minio-ingress
   namespace: minio
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   ingressClassName: nginx
   rules:
