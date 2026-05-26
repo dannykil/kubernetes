@@ -14,6 +14,12 @@ configOverrides:
 
 supersetNode:
   replicaCount: 1
+  connections:
+    db_host: postgres-postgresql.postgres.svc.cluster.local
+    db_port: "5432"
+    db_user: postgres
+    db_pass: postgres
+    db_name: superset
   resources:
     requests:
       cpu: 100m
