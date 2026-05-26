@@ -121,6 +121,9 @@ kubectl create namespace argocd
 helm repo add argo https://argoproj.github.io/argo-helm
 helm repo update
 helm install argocd argo/argo-cd --namespace argocd
+# 포트 포워딩 (브라우저 접속용)
+# 브라우저에서 **https://localhost:8080**으로 접속
+kubectl port-forward svc/argocd-server -n argocd 8080:443
 ```
 
 ### 5. 전체 서비스 한 번에 배포

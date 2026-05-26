@@ -12,6 +12,7 @@ spec:
   sources:
     - repoURL: https://apache.github.io/superset
       chart: superset
+      targetRevision: "0.15.5"
       helm:
         valueFiles:
           - $values/superset/superset-values-dev.yaml

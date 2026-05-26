@@ -12,7 +12,7 @@ spec:
   sources:
     - repoURL: https://charts.jenkins.io
       chart: jenkins
-
+      targetRevision: "5.9.22"
       helm:
         valueFiles:
           - $values/jenkins/values.yaml
