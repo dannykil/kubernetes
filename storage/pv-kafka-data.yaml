@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: kafka-pv
+  name: kafka-data-pv
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
 spec:
@@ -12,8 +12,8 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: storage-local
   claimRef:
-    namespace: monitoring
-    name: prometheus-prometheus-kube-prometheus-prometheus-db-prometheus-prometheus-kube-prometheus-prometheus-0
+    namespace: kafka
+    name: data-my-cluster-dual-role-0
   local:
     path: /mnt/storage-data/kafka
   nodeAffinity:
