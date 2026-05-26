@@ -53,11 +53,13 @@ kind 클러스터 (Docker)                             │          │
 ```
 kubernetes/
 ├── kind-config.yaml          # kind 클러스터 설정 (node labels + extraMounts)
-├── postgres/                 # 공유 PostgreSQL
+├── postgres/                 # 공유 PostgreSQL (공식 postgres:16-alpine 이미지)
 │   ├── storageclass.yaml
 │   ├── pv.yaml
 │   ├── pvc.yaml
-│   └── values.yaml
+│   ├── configmap.yaml
+│   ├── service.yaml
+│   └── statefulset.yaml
 ├── storage/                  # 파일시스템 서비스용 PV
 │   ├── storageclass.yaml
 │   ├── pv-jenkins.yaml
@@ -124,6 +126,9 @@ helm install argocd argo/argo-cd --namespace argocd
 # 포트 포워딩 (브라우저 접속용)
 # 브라우저에서 **https://localhost:8080**으로 접속
 kubectl port-forward svc/argocd-server -n argocd 8080:443
+# 초기 비밀번호 확인
+# 로그인 아이디는 admin이며, 비밀번호는 쿠버네티스 시크릿에 암호화되어 저장되어 있습니다. 아래 명령어로 확인하세요.
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
 ```
 
 ### 5. 전체 서비스 한 번에 배포
@@ -135,8 +140,8 @@ kubectl apply -f argocd/application-of-apps.yaml -n argocd
 ArgoCD가 Git 저장소를 읽어 sync-wave 순서대로 자동 배포합니다.
 
 ```
-wave 0: infra (dashboard, ingress-nginx), postgres-storage (PV/PVC), storage (PV)
-wave 1: postgres (PostgreSQL DB), kafka-operator (Strimzi)
+wave 0: infra (dashboard, ingress-nginx), postgres-storage (PV/PVC/PostgreSQL), storage (PV)
+wave 1: kafka-operator (Strimzi)
 wave 2: airflow, mlflow, superset, grafana, prometheus, jenkins, minio, kafka-cluster
 ```
 

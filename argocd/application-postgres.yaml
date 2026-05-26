@@ -1,5 +1,6 @@
 # ArgoCD Application — PostgreSQL (공유 DB)
-# storageclass → pv → pvc → postgresql 순서로 sync-wave 적용
+# Bitnami Helm 대신 공식 postgres:16-alpine 이미지로 배포 (Docker Hub bitnami 이미지 삭제 대응)
+# sync-wave: storageclass(-2) → pv(-1) → pvc(0) → statefulset/service(1)
 # 적용: kubectl apply -f argocd/application-postgres.yaml -n argocd
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -14,35 +15,6 @@ spec:
     repoURL: https://github.com/dannykil/kubernetes.git
     path: postgres
     targetRevision: main
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: postgres
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
----
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: postgres
-  namespace: argocd
-  annotations:
-    argocd.argoproj.io/sync-wave: "1"
-spec:
-  project: default
-  sources:
-    - repoURL: https://charts.bitnami.com/bitnami
-      chart: postgresql
-      targetRevision: "15.5.38"
-      helm:
-        valueFiles:
-          - $values/postgres/values.yaml
-    - repoURL: https://github.com/dannykil/kubernetes.git
-      targetRevision: main
-      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: postgres
