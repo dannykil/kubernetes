@@ -11,6 +11,9 @@ spec:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
   storageClassName: storage-local
+  claimRef:
+    namespace: monitoring
+    name: alertmanager-prometheus-kube-prometheus-alertmanager-db-alertmanager-prometheus-kube-prometheus-alertmanager-0
   local:
     path: /mnt/storage-data/prometheus
   nodeAffinity:
