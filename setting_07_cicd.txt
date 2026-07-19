@@ -42,6 +42,7 @@ docker build -t dannielkil/sample-backend1:1.0.0 ./sample/sources/backend1
    (플러그인 버전에 따라 “Optional filter” 입력란이 **Regexp** 한 줄만 있는 경우, 본문에 위 문자열이 포함되는지 검사하면 됨.)
 4. 저장 후 Jenkins가 안내하는 **Invoke URL** 형태:
    `http(s)://<JENKINS_HOST>/generic-webhook-trigger/invoke?token=<위에서_준_토큰>`
+   http://localhost:8081/job/backend1/generic-webhook-trigger/invoke?token=sample-backend1
 
 #### GitHub 저장소 웹훅
 - Settings → Webhooks → Add webhook  
