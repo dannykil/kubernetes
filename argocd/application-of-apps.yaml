@@ -8,7 +8,8 @@
 # 배포 순서 (sync-wave):
 #   wave 0 : postgres-storage (PV/PVC), storage (PV)
 #   wave 1 : postgres (PostgreSQL), kafka-operator (Strimzi)
-#   wave 2 : airflow, mlflow, superset, grafana, prometheus, jenkins, minio, kafka-cluster
+#   wave 2 : airflow, mlflow, superset, grafana, prometheus, jenkins, minio, kafka-cluster, qdrant, redis
+#   wave 3 : litellm (공유 Postgres + Redis가 준비된 뒤)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

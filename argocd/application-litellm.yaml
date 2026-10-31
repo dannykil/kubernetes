@@ -1,0 +1,35 @@
+# ArgoCD Application — LiteLLM Proxy
+# DB 는 공유 PostgreSQL 의 litellm 데이터베이스를 사용한다.
+# 적용: kubectl apply -f argocd/application-litellm.yaml -n argocd
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: litellm
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: default
+  sources:
+    - repoURL: ghcr.io/berriai
+      chart: litellm-helm
+      targetRevision: "1.106.6"
+      helm:
+        releaseName: litellm
+        valueFiles:
+          - $values/litellm/values.yaml
+    - repoURL: https://github.com/dannykil/kubernetes.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://github.com/dannykil/kubernetes.git
+      targetRevision: main
+      path: litellm/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: litellm
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

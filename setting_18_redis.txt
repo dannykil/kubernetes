@@ -1,0 +1,44 @@
+
+# Redis Stack — Argo CD 매니페스트
+#
+# 이미지: redis/redis-stack:7.4.0-v8
+#   한 컨테이너에 Redis(RediSearch 포함)와 RedisInsight 가 들어 있다.
+# 공식 redis-stack Helm 차트는 데이터 볼륨을 마운트하지 않아서
+# PostgreSQL 과 같이 redis/ 매니페스트로 배포한다.
+#
+# PV: storage/pv-redis.yaml
+#   kind 노드 경로: /mnt/storage-data/redis
+#   Mac 경로: ~/kind-data/storage/redis
+# 노드: role=storage
+# 비밀번호: 없음 (docker-compose 와 동일)
+#
+# 클러스터 내부: redis-stack.redis.svc.cluster.local:6379
+# RedisInsight: http://redis.local  (컨테이너 포트 8001)
+
+
+# 1. 데이터 디렉터리 (최초 1회)
+mkdir -p ~/kind-data/storage/redis
+
+
+# 2. 배포
+kubectl apply -f argocd/application-redis.yaml -n argocd
+kubectl get application redis -n argocd
+
+
+# 3. 확인
+kubectl get pods,pvc -n redis
+kubectl get pv redis-pv
+kubectl exec -n redis redis-stack-0 -- redis-cli ping
+
+
+# 4. 접속
+# RedisInsight: http://redis.local
+# kubectl port-forward -n redis svc/redis-stack 6379:6379
+# redis-cli -h localhost -p 6379 ping
+
+
+# 5. 삭제
+kubectl delete application redis -n argocd
+kubectl delete namespace redis
+kubectl delete pv redis-pv
+# Mac 데이터는 남는다. 지우려면: rm -rf ~/kind-data/storage/redis

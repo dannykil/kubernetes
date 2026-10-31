@@ -2,9 +2,10 @@
 # 접속 전 /etc/hosts에 아래 항목 추가 필요 (최초 1회):
 #   127.0.0.1  argocd.local airflow.local mlflow.local superset.local
 #   127.0.0.1  grafana.local prometheus.local jenkins.local minio.local
+#   127.0.0.1  litellm.local qdrant.local redis.local
 #
 # 추가 명령 (터미널에서 실행):
-#   sudo sh -c 'echo "127.0.0.1 argocd.local airflow.local mlflow.local superset.local grafana.local prometheus.local jenkins.local minio.local" >> /etc/hosts'
+#   sudo sh -c 'echo "127.0.0.1 argocd.local airflow.local mlflow.local superset.local grafana.local prometheus.local jenkins.local minio.local litellm.local qdrant.local redis.local" >> /etc/hosts'
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -175,3 +176,66 @@ spec:
                 name: minio-console
                 port:
                   number: 9001
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: litellm-ingress
+  namespace: litellm
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: litellm.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: litellm
+                port:
+                  number: 4000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: qdrant-ingress
+  namespace: qdrant
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: qdrant.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: qdrant
+                port:
+                  number: 6333
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: redis-ingress
+  namespace: redis
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: redis.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: redis-stack
+                port:
+                  number: 8001

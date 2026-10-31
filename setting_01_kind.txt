@@ -2,6 +2,13 @@
 # 1) 클러스터 생성
 kind create cluster --config ./kubernetes/kind-config.yaml 
 
+kind create cluster --name dev --config ./kubernetes/kind-dev.yaml
+kind create cluster --name prd --config ./kubernetes/kind-prd.yaml
+kind get clusters
+kubectl config get-contexts
+kubectl config use-context kind-dev
+kubectl --context kind-stg get nodes
+
 # 2) 클러스터 삭제
 kind delete cluster
 
@@ -22,7 +29,7 @@ kubectl proxy
 # 3) 접속 주소
 http://localhost:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/
 
-# 4) 로그인 토큰 생성하기 (가장 중요)
+# 4) 로그인 토큰 생성하기 (가장 중요)df
 # 4.1) 서비스 어카운트 생성
 kubectl create serviceaccount admin-user -n kubernetes-dashboard
 

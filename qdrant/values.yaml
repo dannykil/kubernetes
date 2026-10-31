@@ -1,0 +1,17 @@
+replicaCount: 1
+
+image:
+  pullPolicy: IfNotPresent
+
+persistence:
+  accessModes: ["ReadWriteOnce"]
+  size: 10Gi
+  storageClassName: storage-local
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+nodeSelector:
+  role: storage

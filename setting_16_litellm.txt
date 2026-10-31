@@ -1,0 +1,66 @@
+
+# LiteLLM — Argo CD + 공식 Helm 차트
+#
+# 차트: oci://ghcr.io/berriai/litellm-helm  1.106.6
+# values: litellm/values.yaml
+# 추가 매니페스트: litellm/manifests/ (DB 시크릿, litellm DB 생성 Job)
+#
+# 데이터베이스는 공유 PostgreSQL 의 litellm 데이터베이스를 사용한다.
+#   host: postgres-postgresql.postgres.svc.cluster.local:5432
+#   user / password: postgres / postgres
+# 차트에 포함된 Bitnami PostgreSQL, Redis 는 켜지 않는다.
+#
+# 응답 캐시는 redis 네임스페이스의 Redis Stack 을 사용한다.
+#   redis-stack.redis.svc.cluster.local:6379
+#
+# 배포 순서 (sync-wave)
+#   0: litellm DB 생성 Job, DB 시크릿
+#   1: Prisma 마이그레이션 Job
+#   2: LiteLLM Deployment
+# Application 자체는 wave 3 (Postgres wave 1, Redis wave 2 다음)
+
+
+# 1. 사전 준비
+# 1-1) 공유 PostgreSQL 이 Running 이어야 한다.
+kubectl get pods -n postgres
+
+# 1-2) Redis Stack 이 Running 이면 캐시를 바로 쓸 수 있다.
+kubectl get pods -n redis
+
+# 1-3) Git 저장소 main 에 litellm/ 과 argocd/application-litellm.yaml 이 있어야 한다.
+#      Argo CD 는 로컬 파일이 아니라 https://github.com/dannykil/kubernetes.git 를 읽는다.
+
+
+# 2. 배포
+# App of Apps 를 이미 쓰는 경우, main 에 올린 뒤 자동으로 포함된다.
+# 이 서비스만 등록하려면:
+kubectl apply -f argocd/application-litellm.yaml -n argocd
+
+kubectl get application litellm -n argocd
+
+
+# 3. 확인
+kubectl get pods,job,secret -n litellm
+
+# litellm 데이터베이스
+kubectl exec -n postgres postgres-postgresql-0 -- psql -U postgres -c "\l" | grep litellm
+
+
+# 4. 접속
+# Ingress: http://litellm.local
+# Master key: admin
+#
+# 포트 포워딩
+# kubectl port-forward -n litellm svc/litellm 4000:4000
+# http://localhost:4000
+
+
+# 5. Ollama
+# values 의 api_base 는 http://host.docker.internal:11434 이다.
+# Docker Desktop 의 kind 노드에서는 이 이름이 맥 호스트를 가리키지만,
+# 파드 안에서는 해석되지 않는다. 모델 호출 전에 파드에서 도달하는 주소로 바꾼다.
+
+
+# 6. 삭제
+kubectl delete application litellm -n argocd
+kubectl delete namespace litellm

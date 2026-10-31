@@ -11,3 +11,4 @@ data:
     CREATE DATABASE mlflow;
     CREATE DATABASE superset;
     CREATE DATABASE grafana;
+    CREATE DATABASE litellm;

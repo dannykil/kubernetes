@@ -21,13 +21,16 @@ kind 클러스터 (Docker)                             │          │
 │                 ├── database: airflow             │
 │                 ├── database: mlflow              │
 │                 ├── database: superset            │
-│                 └── database: grafana             │
+│                 ├── database: grafana             │
+│                 └── database: litellm             │
 ├── worker [role=storage]   ←── extraMounts ────────┘
 │     └── /mnt/storage-data
-│           ├── /jenkins  → Jenkins PVC
-│           ├── /minio    → MinIO PVC
+│           ├── /jenkins    → Jenkins PVC
+│           ├── /minio      → MinIO PVC
 │           ├── /prometheus → Prometheus PVC
-│           └── /kafka    → Kafka PVC
+│           ├── /kafka      → Kafka PVC
+│           ├── /qdrant     → Qdrant PVC
+│           └── /redis      → Redis Stack PVC
 └── worker (일반 워크로드)
 ```
 
@@ -41,10 +44,13 @@ kind 클러스터 (Docker)                             │          │
 | MLflow     | PostgreSQL (`mlflow` DB)   | postgres 노드 | 실험/런 메타데이터, 아티팩트는 MinIO |
 | Superset   | PostgreSQL (`superset` DB) | postgres 노드 | 대시보드/유저 데이터                 |
 | Grafana    | PostgreSQL (`grafana` DB)  | postgres 노드 | 대시보드/유저 데이터                 |
+| LiteLLM    | PostgreSQL (`litellm` DB)  | postgres 노드 | 프록시 사용량/키. 응답 캐시는 Redis  |
 | Jenkins    | 파일시스템 PVC             | storage 노드  | JENKINS_HOME                         |
 | MinIO      | 파일시스템 PVC             | storage 노드  | 오브젝트 스토리지                    |
 | Prometheus | 파일시스템 PVC             | storage 노드  | TSDB (시계열 데이터)                 |
 | Kafka      | 파일시스템 PVC             | storage 노드  | 메시지 로그                          |
+| Qdrant     | 파일시스템 PVC             | storage 노드  | 벡터 데이터                          |
+| Redis Stack | 파일시스템 PVC            | storage 노드  | 캐시 + RedisInsight                  |
 
 ---
 
@@ -65,7 +71,9 @@ kubernetes/
 │   ├── pv-jenkins.yaml
 │   ├── pv-minio.yaml
 │   ├── pv-prometheus.yaml
-│   └── pv-kafka.yaml
+│   ├── pv-kafka.yaml
+│   ├── pv-qdrant.yaml
+│   └── pv-redis.yaml
 ├── airflow/values.yaml       # 외부 PostgreSQL 연동
 ├── mlflow/values.yaml        # 외부 PostgreSQL + MinIO 연동
 ├── superset/superset-values-dev.yaml  # 외부 PostgreSQL 연동
@@ -76,6 +84,14 @@ kubernetes/
 ├── kafka/
 │   ├── operator-values.yaml  # Strimzi operator
 │   └── cluster.yaml          # KafkaNodePool + Kafka CR
+├── litellm/
+│   ├── values.yaml           # 공유 PostgreSQL + Redis 캐시
+│   └── manifests/            # DB 시크릿, litellm DB 생성 Job
+├── qdrant/values.yaml        # hostPath PVC
+├── redis/                    # Redis Stack (이미지에 RedisInsight 포함)
+│   ├── pvc.yaml
+│   ├── service.yaml
+│   └── statefulset.yaml
 └── argocd/
     ├── application-of-apps.yaml      # 전체 배포 진입점 (단일 명령)
     ├── application-postgres.yaml
@@ -87,7 +103,10 @@ kubernetes/
     ├── application-prometheus.yaml
     ├── application-jenkins.yaml
     ├── application-minio.yaml
-    └── application-kafka.yaml
+    ├── application-kafka.yaml
+    ├── application-litellm.yaml
+    ├── application-qdrant.yaml
+    └── application-redis.yaml
 ```
 
 ---
@@ -97,7 +116,7 @@ kubernetes/
 ### 1. Mac /etc/hosts 설정 (최초 1회)
 
 ```bash
-sudo sh -c 'echo "127.0.0.1 argocd.local airflow.local mlflow.local superset.local grafana.local prometheus.local jenkins.local minio.local" >> /etc/hosts'
+sudo sh -c 'echo "127.0.0.1 argocd.local airflow.local mlflow.local superset.local grafana.local prometheus.local jenkins.local minio.local litellm.local qdrant.local redis.local" >> /etc/hosts'
 ```
 
 ### 2. Mac 호스트에 데이터 디렉토리 생성
@@ -108,6 +127,8 @@ mkdir -p ~/kind-data/storage/jenkins
 mkdir -p ~/kind-data/storage/minio
 mkdir -p ~/kind-data/storage/prometheus
 mkdir -p ~/kind-data/storage/kafka
+mkdir -p ~/kind-data/storage/qdrant
+mkdir -p ~/kind-data/storage/redis
 ```
 
 ### 3. kind 클러스터 생성
@@ -142,7 +163,8 @@ ArgoCD가 Git 저장소를 읽어 sync-wave 순서대로 자동 배포합니다.
 ```
 wave 0: infra (dashboard, ingress-nginx), postgres-storage (PV/PVC/PostgreSQL), storage (PV)
 wave 1: kafka-operator (Strimzi)
-wave 2: airflow, mlflow, superset, grafana, prometheus, jenkins, minio, kafka-cluster
+wave 2: airflow, mlflow, superset, grafana, prometheus, jenkins, minio, kafka-cluster, qdrant, redis
+wave 3: litellm
 ```
 
 ### 6. 서비스 접속 (포트 포워딩 불필요)
@@ -159,6 +181,9 @@ wave 2: airflow, mlflow, superset, grafana, prometheus, jenkins, minio, kafka-cl
 | Prometheus | http://prometheus.local |
 | Jenkins    | http://jenkins.local    |
 | MinIO      | http://minio.local      |
+| LiteLLM    | http://litellm.local    |
+| Qdrant     | http://qdrant.local     |
+| RedisInsight | http://redis.local    |
 
 ArgoCD 초기 비밀번호 확인:
 
@@ -194,7 +219,22 @@ kubectl apply -f argocd/application-of-apps.yaml -n argocd
 | Port                 | `5432`                                           |
 | User                 | `postgres`                                       |
 | Password             | `postgres`                                       |
-| Databases            | `airflow`, `mlflow`, `superset`, `grafana`       |
+| Databases            | `airflow`, `mlflow`, `superset`, `grafana`, `litellm` |
+
+이미 초기화된 데이터 디렉터리에는 `postgres-init` SQL이 다시 실행되지 않습니다. `litellm` 데이터베이스는 LiteLLM Application의 `litellm-create-database` Job이 만듭니다.
+
+## LiteLLM / Qdrant / Redis
+
+| 항목 | 값 |
+| --- | --- |
+| LiteLLM UI | http://litellm.local |
+| LiteLLM master key | `admin` |
+| LiteLLM DB | 공유 PostgreSQL `litellm` |
+| Qdrant | http://qdrant.local , 클러스터 내부 `qdrant.qdrant.svc.cluster.local:6333` |
+| Redis | `redis-stack.redis.svc.cluster.local:6379` (비밀번호 없음) |
+| RedisInsight | http://redis.local |
+
+LiteLLM 모델 `api_base`는 맥에서 띄운 Ollama(`host.docker.internal:11434`)를 가리킵니다. kind 파드에서는 이 이름이 해석되지 않으므로, 호출 전에 파드에서 도달하는 주소로 `litellm/values.yaml`을 바꿉니다.
 
 ---
 

@@ -6,7 +6,7 @@
 #   - storageclass.yaml  : 로컬 스토리지 클래스 (postgres-local)
 #   - pv.yaml            : kind-worker 노드 /mnt/postgres-data 를 10Gi PV로 등록
 #   - pvc.yaml           : 위 PV를 요청하는 PVC
-#   - configmap.yaml     : 초기 DB 자동 생성 SQL (airflow/mlflow/superset/grafana)
+#   - configmap.yaml     : 초기 DB 자동 생성 SQL (airflow/mlflow/superset/grafana/litellm)
 #   - statefulset.yaml   : postgres:16-alpine 파드 (role=postgres 노드에 고정)
 #   - service.yaml       : ClusterIP 서비스 (postgres-postgresql:5432)
 #
@@ -72,8 +72,12 @@ kubectl get pods -n postgres
 # 3-2) PV / PVC 바인딩 확인 (STATUS: Bound 가 되어야 함)
 kubectl get pv,pvc -n postgres
 
-# 3-3) 초기 DB 생성 확인 (airflow / mlflow / superset / grafana)
+# 3-3) 초기 DB 생성 확인 (airflow / mlflow / superset / grafana / litellm)
 kubectl exec -n postgres postgres-postgresql-0 -- psql -U postgres -c "\l"
+
+# [참고] 이미 초기화된 데이터 디렉터리(~/kind-data/postgres/pgdata)에는
+# init SQL 이 다시 실행되지 않습니다.
+# litellm 데이터베이스는 LiteLLM Application 의 litellm-create-database Job 이 만듭니다.
 
 
 # ──────────────────────────────────────────────
@@ -91,7 +95,7 @@ psql -h localhost -U postgres -p 5432
 # 4-3) DBeaver / DataGrip 등 GUI 툴 접속 정보
 #   Host     : localhost
 #   Port     : 5432
-#   Database : postgres  (또는 airflow / mlflow / superset / grafana)
+#   Database : postgres  (또는 airflow / mlflow / superset / grafana / litellm)
 #   User     : postgres
 #   Password : postgres
 

@@ -1,0 +1,59 @@
+# redis/redis-stack 이미지 하나에 Redis(RediSearch)와 RedisInsight 가 들어 있다.
+# 공식 redis-stack 차트는 볼륨을 마운트하지 않아서, PostgreSQL 과 같이 매니페스트로 배포한다.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-stack
+  namespace: redis
+spec:
+  serviceName: redis-stack
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-stack
+  template:
+    metadata:
+      labels:
+        app: redis-stack
+    spec:
+      nodeSelector:
+        role: storage
+      securityContext:
+        fsGroup: 999
+      containers:
+        - name: redis-stack
+          image: redis/redis-stack:7.4.0-v8
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: redis
+              containerPort: 6379
+            - name: insight
+              containerPort: 8001
+          env:
+            - name: REDIS_ARGS
+              value: "--appendonly yes --dir /data"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: redis-pvc

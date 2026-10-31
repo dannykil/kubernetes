@@ -1,0 +1,35 @@
+# 데이터 디렉터리가 이미 있으면 postgres-init ConfigMap 은 다시 실행되지 않는다.
+# 이 Job 이 litellm 데이터베이스를 없으면 만들고, 마이그레이션 Job(wave 1)보다 먼저 끝난다.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: litellm-create-database
+  namespace: litellm
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/sync-options: Force=true,Replace=true
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: create-database
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PGPASSWORD
+              value: postgres
+          command:
+            - sh
+            - -c
+            - |
+              if psql -h postgres-postgresql.postgres.svc.cluster.local -U postgres -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = 'litellm'" | grep -q 1; then
+                echo "database litellm already exists"
+              else
+                psql -h postgres-postgresql.postgres.svc.cluster.local -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE litellm"
+              fi
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi

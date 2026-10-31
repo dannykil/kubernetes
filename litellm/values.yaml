@@ -1,0 +1,109 @@
+# LiteLLM Proxy — 공유 PostgreSQL + 클러스터 Redis
+# 차트: oci://ghcr.io/berriai/litellm-helm 1.106.6
+# 번들 Bitnami Postgres/Redis 는 쓰지 않는다.
+
+fullnameOverride: litellm
+
+image:
+  repository: ghcr.io/berriai/litellm
+  pullPolicy: IfNotPresent
+  tag: "1.106.6"
+
+replicaCount: 1
+
+# docker-compose 의 LITELLM_MASTER_KEY 와 동일
+masterkey: admin
+
+service:
+  type: ClusterIP
+  port: 4000
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+
+# 스키마 마이그레이션이 끝난 뒤에 프록시를 띄운다.
+# DB 생성 Job(litellm/manifests, wave 0) → 이 Job(wave 1) → Deployment(wave 2)
+deploymentAnnotations:
+  argocd.argoproj.io/sync-wave: "2"
+
+db:
+  useExisting: true
+  deployStandalone: false
+  endpoint: postgres-postgresql.postgres.svc.cluster.local
+  database: litellm
+  secret:
+    name: litellm-db
+    usernameKey: username
+    passwordKey: password
+
+redis:
+  enabled: false
+
+migrationJob:
+  enabled: true
+  # 차트 기본값 120초면 완료된 Job 이 삭제되고 Argo CD 가 반복 생성한다.
+  # 문자열로 두어야 Helm 이 큰 정수를 3.1536e+07 처럼 렌더링하지 않는다.
+  ttlSecondsAfterFinished: "31536000"
+  hooks:
+    argocd:
+      enabled: false
+    helm:
+      enabled: false
+  jobAnnotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: Force=true,Replace=true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+
+serviceMonitor:
+  enabled: false
+
+# Ollama 는 맥 호스트에서 동작한다. kind 파드는 host.docker.internal 을
+# 그대로 해석하지 못하므로, 호출 전에 도달 가능한 주소로 api_base 를 바꾼다.
+proxy_config:
+  model_list:
+    - model_name: "gemma4:31b"
+      litellm_params:
+        model: "ollama_chat/gemma4:31b"
+        api_base: http://host.docker.internal:11434
+        num_ctx: 64000
+      model_info:
+        input_cost_per_token: 0.0000005
+        output_cost_per_token: 0.0000015
+    - model_name: "gemma4:26b"
+      litellm_params:
+        model: "ollama_chat/gemma4:26b"
+        api_base: http://host.docker.internal:11434
+        num_ctx: 64000
+      model_info:
+        input_cost_per_token: 0.0000005
+        output_cost_per_token: 0.0000015
+  router_settings:
+    fallbacks:
+      - "gemma4:31b": ["gemma4:26b"]
+      - "gemma4:26b": ["gemma4:31b"]
+    num_retries: 1
+  general_settings:
+    master_key: os.environ/PROXY_MASTER_KEY
+    store_model_in_db: true
+    store_prompts_in_spend_logs: true
+  litellm_settings:
+    set_verbose: true
+    cache: true
+    enable_redis_auth_cache: true
+    cache_params:
+      type: redis
+      host: redis-stack.redis.svc.cluster.local
+      port: 6379
+      supported_call_types:
+        - acompletion
+        - atext_completion
+        - aembedding
+        - atranscription
+      redis_semantic_cache_embedding_model: local-embedding
+      redis_semantic_cache_index_name: llm_cache
+      similarity_threshold: 0.85

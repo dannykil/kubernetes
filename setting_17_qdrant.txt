@@ -1,0 +1,40 @@
+
+# Qdrant — Argo CD + 공식 Helm 차트
+#
+# 차트: https://qdrant.github.io/qdrant-helm  qdrant 1.20.0 (app v1.20.0)
+# values: qdrant/values.yaml
+# PV: storage/pv-qdrant.yaml
+#   kind 노드 경로: /mnt/storage-data/qdrant
+#   Mac 경로: ~/kind-data/storage/qdrant
+#   PVC 이름: qdrant-storage-qdrant-0  (릴리스 이름 qdrant, 볼륨 이름 qdrant-storage)
+# 노드: role=storage
+#
+# 클러스터 내부 주소: qdrant.qdrant.svc.cluster.local:6333
+# 대시보드: http://qdrant.local
+
+
+# 1. 데이터 디렉터리 (최초 1회)
+mkdir -p ~/kind-data/storage/qdrant
+
+
+# 2. 배포
+# App of Apps 를 쓰면 main 반영 후 자동으로 포함된다.
+kubectl apply -f argocd/application-qdrant.yaml -n argocd
+kubectl get application qdrant -n argocd
+
+
+# 3. 확인
+kubectl get pods,pvc -n qdrant
+kubectl get pv qdrant-pv
+
+
+# 4. 접속
+# http://qdrant.local
+# kubectl port-forward -n qdrant svc/qdrant 6333:6333
+
+
+# 5. 삭제
+kubectl delete application qdrant -n argocd
+kubectl delete namespace qdrant
+kubectl delete pv qdrant-pv
+# Mac 데이터는 남는다. 지우려면: rm -rf ~/kind-data/storage/qdrant

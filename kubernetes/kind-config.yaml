@@ -23,7 +23,7 @@ nodes:
         containerPath: /mnt/postgres-data                  # kind 노드 내부 경로
   - role: worker
     labels:
-      role: storage         # 파일시스템 기반 서비스 전용 노드 (Jenkins, MinIO, Prometheus, Kafka)
+      role: storage         # 파일시스템 기반 서비스 전용 노드 (Jenkins, MinIO, Prometheus, Kafka, Qdrant, Redis)
     extraMounts:
       - hostPath: /Users/danniel.kil/kind-data/storage    # Mac 호스트 경로 (절대 경로 필수)
         containerPath: /mnt/storage-data                   # kind 노드 내부 경로
