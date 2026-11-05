@@ -9,6 +9,10 @@ backendStore:
     user: postgres
     password: postgres
 
+# 차트에 포함된 PostgreSQL 은 쓰지 않는다. 공유 postgres 파드를 사용한다.
+postgresql:
+  enabled: false
+
 artifactRoot:
   s3:
     enabled: true
@@ -16,8 +20,9 @@ artifactRoot:
     path: artifacts
     awsAccessKeyId: minioadmin
     awsSecretAccessKey: minioadmin123
-  extraEnvVars:
-    MLFLOW_S3_ENDPOINT_URL: "http://minio.minio.svc.cluster.local:9000"
+
+extraEnvVars:
+  MLFLOW_S3_ENDPOINT_URL: "http://minio.minio.svc.cluster.local:9000"
 
 serviceMonitor:
   enabled: false
