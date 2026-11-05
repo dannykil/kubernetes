@@ -13,7 +13,7 @@ spec:
     - repoURL: https://community-charts.github.io/helm-charts
       chart: mlflow
       # targetRevision: "1.8.1"
-      version: '1.11.7'
+      targetRevision: '1.11.7'
       helm:
         valueFiles:
           - $values/mlflow/values.yaml
