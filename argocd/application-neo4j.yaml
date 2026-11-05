@@ -1,0 +1,31 @@
+# ArgoCD Application — Neo4j Community (standalone)
+# 적용: kubectl apply -f argocd/application-neo4j.yaml -n argocd
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: neo4j
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  sources:
+    - repoURL: https://helm.neo4j.com/neo4j
+      chart: neo4j
+      targetRevision: "2026.10.1"
+      helm:
+        releaseName: neo4j
+        valueFiles:
+          - $values/neo4j/values.yaml
+    - repoURL: https://github.com/dannykil/kubernetes.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: neo4j
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

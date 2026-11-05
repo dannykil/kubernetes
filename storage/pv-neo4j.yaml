@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: neo4j-pv
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: storage-local
+  claimRef:
+    namespace: neo4j
+    # neo4j 차트 release 이름 neo4j, volumeClaimTemplate 이름 data
+    name: data-neo4j-0
+  local:
+    path: /mnt/storage-data/neo4j
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: role
+              operator: In
+              values:
+                - storage

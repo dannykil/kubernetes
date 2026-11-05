@@ -1,0 +1,57 @@
+
+# Neo4j — Argo CD + 공식 Helm 차트
+#
+# 차트: https://helm.neo4j.com/neo4j  neo4j 2026.10.1 (Community standalone)
+# 문서: https://neo4j.com/docs/operations-manual/current/kubernetes/
+# values: neo4j/values.yaml
+# PV: storage/pv-neo4j.yaml
+#   kind 노드 경로: /mnt/storage-data/neo4j
+#   Mac 경로: ~/kind-data/storage/neo4j
+#   PVC 이름: data-neo4j-0  (릴리스 이름 neo4j, 볼륨 이름 data)
+# 노드: role=storage
+#
+# 클러스터 내부: neo4j.neo4j.svc.cluster.local
+#   Bolt 7687 / HTTP 7474
+# 계정: neo4j / password
+#   초기 비밀번호로 "neo4j" 는 차트에서 거부된다.
+#
+# Browser 는 Bolt 가 필요하다. kind 는 80/443 만 호스트에 열려 있어서
+# 노트북에서는 포트 포워딩으로 접속한다.
+
+
+# 1. 데이터 디렉터리 (최초 1회)
+mkdir -p ~/kind-data/storage/neo4j
+
+
+# 2. 배포
+# App of Apps 를 쓰면 main 반영 후 자동으로 포함된다.
+kubectl apply -f argocd/application-neo4j.yaml -n argocd
+kubectl get application neo4j -n argocd
+
+
+# 3. 확인
+kubectl get pods,pvc -n neo4j
+kubectl get pv neo4j-pv
+# PVC STATUS 가 Bound, 파드가 1/1 Running 이면 완료
+
+
+# 4. 접속
+kubectl port-forward -n neo4j svc/neo4j 7474:7474 7687:7687
+# 브라우저: http://localhost:7474
+# Connect URL: neo4j://localhost:7687
+# Username: neo4j
+# Password: password
+#
+# 클러스터 안 다른 파드:
+#   bolt://neo4j.neo4j.svc.cluster.local:7687
+#   http://neo4j.neo4j.svc.cluster.local:7474
+#
+# Ingress http://neo4j.local 은 Browser 화면만 연다.
+# Bolt(7687)는 호스트로 열려 있지 않아, 노트북에서 쿼리하려면 위의 port-forward 를 쓴다.
+
+
+# 5. 삭제
+kubectl delete application neo4j -n argocd
+kubectl delete namespace neo4j
+kubectl delete pv neo4j-pv
+# Mac 데이터는 남는다. 지우려면: rm -rf ~/kind-data/storage/neo4j

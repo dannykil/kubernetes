@@ -1,0 +1,40 @@
+# 공식 neo4j/neo4j 차트 (Community, standalone)
+# Argo CD는 helm template 으로 렌더링하므로 lookup 을 끈다.
+# https://neo4j.com/docs/operations-manual/current/kubernetes/
+disableLookups: true
+
+neo4j:
+  name: neo4j
+  edition: community
+  # 초기 비밀번호로 "neo4j" 는 사용할 수 없다.
+  password: password
+  # 차트 최소 메모리. requests 와 limit 둘 다 이 값으로 잡힌다.
+  resources:
+    cpu: "500m"
+    memory: "2Gi"
+
+# kind 의 storage-local(WaitForFirstConsumer) PV 에 붙인다.
+# StatefulSet volumeClaimTemplate 이름 data → PVC 이름 data-neo4j-0
+volumes:
+  data:
+    mode: dynamic
+    dynamic:
+      storageClassName: storage-local
+      accessModes:
+        - ReadWriteOnce
+      requests:
+        storage: 10Gi
+
+config:
+  server.memory.heap.initial_size: "256m"
+  server.memory.heap.max_size: "512m"
+  server.memory.pagecache.size: "128m"
+
+# storage 노드에만 스케줄 (PV nodeAffinity 와 동일)
+nodeSelector:
+  role: storage
+
+services:
+  # kind 에는 LoadBalancer 구현이 없다. 클러스터 내부는 release 이름과 같은 ClusterIP(neo4j)를 쓴다.
+  neo4j:
+    enabled: false
