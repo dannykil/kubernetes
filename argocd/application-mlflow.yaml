@@ -6,13 +6,14 @@ metadata:
   name: mlflow
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-wave: '2'
 spec:
   project: default
   sources:
     - repoURL: https://community-charts.github.io/helm-charts
       chart: mlflow
-      targetRevision: "1.8.1"
+      # targetRevision: "1.8.1"
+      targetRevision: '1.11.7'
       helm:
         valueFiles:
           - $values/mlflow/values.yaml
