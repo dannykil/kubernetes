@@ -33,7 +33,12 @@ kubectl exec -n redis redis-stack-0 -- redis-cli ping
 
 # 4. 접속
 # RedisInsight: http://redis.local
-# kubectl port-forward -n redis svc/redis-stack 6379:6379
+# 6379는 redis-cli용
+# kubectl port-forward -n redis svc/redis-stack 6379:6379 
+
+# kubectl port-forward -n redis svc/redis-stack 8001:8001
+# localhost:8001은 RedisInsight가 아니라 kubectl proxy가 응답
+# kubectl port-forward -n redis svc/redis-stack 8002:8001
 # redis-cli -h localhost -p 6379 ping
 
 

@@ -14,6 +14,9 @@ helm install argocd argo/argo-cd --namespace argocd
 # 1) 파드 상태 확인
 kubectl get pods -n argocd
 
+# ArgoCD Application — 파일시스템 기반 서비스 PV 모음 (Jenkins, MinIO, Prometheus, Kafka, Qdrant, Redis)
+# 적용: kubectl apply -f argocd/application-storage.yaml -n argocd
+
 # 2) 포트 포워딩 (맥북 브라우저 접속용)
 # 브라우저에서 **https://localhost:8080**으로 접속
 kubectl port-forward svc/argocd-server -n argocd 8080:443

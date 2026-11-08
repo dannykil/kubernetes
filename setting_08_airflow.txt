@@ -24,7 +24,7 @@ helm repo update
 # 3. Helm으로 Airflow 설치 (릴리스 이름: airflow)
 # --create-namespace 는 이미 네임스페이스가 있으면 생략해도 됩니다.
 # helm upgrade --install airflow apache-airflow/airflow --namespace airflow
-kubectl apply -f argocd/application-airflow.yaml -n argocd
+kubectl apply -f argocd/application-airflow.yaml -n airflow
 
 
 # (선택) 차트/앱 버전 고정 예시 — 설치 전에 `helm search repo apache-airflow/airflow -l` 로 확인

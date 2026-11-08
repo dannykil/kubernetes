@@ -24,7 +24,9 @@ helm repo update
 
 
 # 3. Helm으로 MLflow 설치 (릴리스 이름: mlflow)
-helm upgrade --install mlflow community-charts/mlflow --namespace mlflow
+# helm upgrade --install mlflow community-charts/mlflow --namespace mlflow
+kubectl apply -f argocd/application-mlflow.yaml -n argocd
+kubectl get application mlflow -n argocd
 
 # (선택) 차트/앱 버전 고정 예시
 # helm search repo community-charts/mlflow -l
@@ -80,6 +82,28 @@ kubectl port-forward -n mlflow svc/mlflow 5000:80
 # import mlflow
 # mlflow.set_tracking_uri("http://localhost:5000")
 # mlflow.set_experiment("my-experiment")
+
+
+# 5) 메타데이터 데이터베이스 (공유 Postgres)
+#    값은 mlflow/values.yaml 의 backendStore.postgres 와 같다.
+#    5000 은 Tracking UI 이다. DBeaver 는 Postgres 5432 로 접속한다.
+#
+# 클러스터 내부
+#   Host     : postgres-postgresql.postgres.svc.cluster.local
+#   Port     : 5432
+#   Database : mlflow
+#   User     : postgres
+#   Password : postgres
+#
+# 로컬 (DBeaver / DataGrip / psql)
+kubectl port-forward -n postgres svc/postgres-postgresql 5432:5432
+#   Host     : localhost
+#   Port     : 5432
+#   Database : mlflow
+#   User     : postgres
+#   Password : postgres
+#   SSL      : off
+# 이 Postgres 이미지는 TLS 를 켜 두지 않는다. DBeaver 에서 SSL 을 켜면 접속이 실패한다.
 
 
 ### 5. 삭제
