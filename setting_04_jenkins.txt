@@ -10,7 +10,8 @@ helm repo update
 
 # 3. Helm으로 Jenkins 설치
 # 'my-release'라는 이름으로 jenkins 네임스페이스에 설치
-helm install jenkins jenkins/jenkins --namespace jenkins
+# helm install jenkins jenkins/jenkins --namespace jenkins (사용안함)
+kubectl apply -f argocd/application-jenkins.yaml -n argocd
 
 
 # 4. 설치 확인 및 대시보드 접속

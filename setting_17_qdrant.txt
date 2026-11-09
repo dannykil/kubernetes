@@ -31,6 +31,7 @@ kubectl get pv qdrant-pv
 # 4. 접속
 # http://qdrant.local
 # kubectl port-forward -n qdrant svc/qdrant 6333:6333
+# http://localhost:6333/dashboard#/collections
 
 
 # 5. 삭제
