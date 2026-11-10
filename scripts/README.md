@@ -38,6 +38,8 @@ Postgres, Jenkins, Redis, Qdrant, Neo4j의 파일은 클러스터 안이 아니�
 
 Argo CD가 읽는 매니페스트는 GitHub `main`이다. 로컬에서만 고친 `values.yaml`은 푸시하기 전에는 클러스터에 반영되지 않는다.
 
+Ingress는 예외다. 저장소의 Ingress Service가 `LoadBalancer`이면 kind가 외부 주소를 만들지 않고, Argo CD는 그 주소를 기다리며 `Progressing`에서 멈추기 때문이다. `setting_01_kind.txt`에서 직접 설치할 때 쓰는 kind용 매니페스트는 Service가 `NodePort`이고, 컨트롤러가 control-plane의 80·443을 직접 연다. 스크립트는 `infra` 자동 동기화를 끄고 `kubernetes/ingress-nginx-kind.yaml`을 그 방식으로 적용한 뒤, Deployment가 Ready인지만 확인한다.
+
 ## 명령
 
 삭제는 `y` 또는 `Y`를 입력해야 진행된다. Enter는 취소다.
@@ -60,7 +62,28 @@ Argo CD가 읽는 매니페스트는 GitHub `main`이다. 로컬에서만 고친
 | `down`, `down kind` | 이름 `kind`인 클러스터만 삭제. `~/kind-data`는 유지. 다른 kind 클러스터는 건드리지 않음 |
 | `list` | 등록된 서비스와 의존성 |
 
-웹 화면은 Ingress로 연다. kind가 호스트 80번을 Ingress에 연결해 두었으므로, `/etc/hosts`에 이름이 있으면 `http://jenkins.local`처럼 연다. 이 스크립트는 포트포워딩을 열지 않는다.
+서비스가 준비되면 스크립트가 `setting_*.txt`에 적힌 `kubectl port-forward`를 백그라운드로 연다. `/etc/hosts` 없이 아래 주소로 접속한다. `down`은 연 포워딩을 모두 종료하고, `down <서비스>`는 그 네임스페이스 포워딩만 종료한다.
+
+| 서비스 | 주소 |
+| --- | --- |
+| Argo CD | https://localhost:8080 |
+| Postgres | localhost:5432 |
+| Redis / RedisInsight | localhost:6379 / http://localhost:8002 |
+| Jenkins | http://localhost:8081 |
+| MinIO API / Console | localhost:9000 / http://localhost:9001 |
+| Prometheus / Alertmanager | http://localhost:9090 / http://localhost:9093 |
+| Grafana | http://localhost:3000 |
+| Airflow | http://localhost:8082 |
+| MLflow | http://localhost:5000 |
+| Superset | http://localhost:8088 |
+| Qdrant | http://localhost:6333 |
+| Neo4j | http://localhost:7474 , Bolt localhost:7687 |
+| Kafka UI | http://localhost:8083 (`kafka-ui` 서비스가 있을 때) |
+| LiteLLM | http://localhost:4000 |
+
+RedisInsight는 8001이 아니라 8002다. `setting_18_redis.txt`에 적힌 대로 8001은 kubectl proxy가 쓴다. Prometheus 차트의 번들 Grafana는 `setting_14_grafana.txt`의 Grafana와 로컬 3000번이 같아서 열지 않는다. Kafka UI는 `setting_09_kafka.txt`의 선택 설치라, 그 서비스가 클러스터에 있을 때만 연다.
+
+Ingress 이름(`http://jenkins.local` 등)도 그대로 쓸 수 있다. kind가 호스트 80번을 Ingress에 연결해 두었고, `/etc/hosts`에 이름이 있어야 한다.
 
 ```bash
 sudo sh -c 'echo "127.0.0.1 argocd.local airflow.local mlflow.local superset.local grafana.local prometheus.local jenkins.local minio.local litellm.local qdrant.local redis.local" >> /etc/hosts'

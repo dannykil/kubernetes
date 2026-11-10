@@ -19,9 +19,22 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: default
+  # 자동 동기화를 켜 두면 GitHub main 의 LoadBalancer Service 가 다시 들어온다.
+  # kind 는 그 Service 에 외부 주소를 주지 않아 sync 가 Progressing 에서 끝나지 않는다.
+  # scripts/cluster.sh 가 로컬 kubernetes/ingress-nginx-kind.yaml 을 직접 적용한다.
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      name: kubernetes-dashboard-csrf
+      namespace: kubernetes-dashboard
+      jsonPointers:
+        - /data
+    - group: ""
+      kind: Secret
+      name: kubernetes-dashboard-key-holder
+      namespace: kubernetes-dashboard
+      jsonPointers:
+        - /data
   syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
     syncOptions:
       - CreateNamespace=true

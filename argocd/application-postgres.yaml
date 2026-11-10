@@ -1,6 +1,8 @@
 # ArgoCD Application — PostgreSQL (공유 DB)
 # Bitnami Helm 대신 공식 postgres:16-alpine 이미지로 배포 (Docker Hub bitnami 이미지 삭제 대응)
-# sync-wave: storageclass(-2) → pv(-1) → pvc(0) → statefulset/service(1)
+# sync-wave: storageclass(-2) → pv(-1) → pvc와 statefulset(1)
+# postgres-local 은 WaitForFirstConsumer 다. PVC만 먼저 만들면 Pending에서 끝나고
+# StatefulSet 이 적용되지 않는다. PVC와 StatefulSet 은 같은 wave 여야 한다.
 # 적용: kubectl apply -f argocd/application-postgres.yaml -n argocd
 apiVersion: argoproj.io/v1alpha1
 kind: Application
