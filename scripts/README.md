@@ -62,7 +62,7 @@ Ingress는 예외다. 저장소의 Ingress Service가 `LoadBalancer`이면 kind�
 | `down`, `down kind` | 이름 `kind`인 클러스터만 삭제. `~/kind-data`는 유지. 다른 kind 클러스터는 건드리지 않음 |
 | `list` | 등록된 서비스와 의존성 |
 
-서비스가 준비되면 스크립트가 `setting_*.txt`에 적힌 `kubectl port-forward`를 백그라운드로 연다. `/etc/hosts` 없이 아래 주소로 접속한다. `down`은 연 포워딩을 모두 종료하고, `down <서비스>`는 그 네임스페이스 포워딩만 종료한다.
+서비스가 준비되면 스크립트가 `setting_*.txt`에 적힌 `kubectl port-forward`를 백그라운드로 연다. 파드 연결이 끊겨 프로세스가 끝나면 같은 포트를 다시 연다. `/etc/hosts` 없이 아래 주소로 접속한다. `down`은 연 포워딩을 모두 종료하고, `down <서비스>`는 그 네임스페이스 포워딩만 종료한다. Neo4j 브라우저 7474와 Bolt 7687은 프로세스를 나눠 연다.
 
 | 서비스 | 주소 |
 | --- | --- |
@@ -80,6 +80,9 @@ Ingress는 예외다. 저장소의 Ingress Service가 `LoadBalancer`이면 kind�
 | Neo4j | http://localhost:7474 , Bolt localhost:7687 |
 | Kafka UI | http://localhost:8083 (`kafka-ui` 서비스가 있을 때) |
 | LiteLLM | http://localhost:4000 |
+| Kubernetes Dashboard | http://localhost:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/ |
+
+대시보드는 `kubectl port-forward`가 아니라 `kubectl proxy --port=8001`이다. `setting_01_kind.txt`와 같은 주소다. 스크립트는 `admin-user` 계정과 cluster-admin 권한을 만든다. 로그인 토큰은 `kubectl -n kubernetes-dashboard create token admin-user`로 확인한다. `down`이 프록시 프로세스도 종료한다.
 
 RedisInsight는 8001이 아니라 8002다. `setting_18_redis.txt`에 적힌 대로 8001은 kubectl proxy가 쓴다. Prometheus 차트의 번들 Grafana는 `setting_14_grafana.txt`의 Grafana와 로컬 3000번이 같아서 열지 않는다. Kafka UI는 `setting_09_kafka.txt`의 선택 설치라, 그 서비스가 클러스터에 있을 때만 연다.
 

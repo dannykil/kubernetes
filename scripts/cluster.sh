@@ -109,22 +109,81 @@ install_argocd() {
 }
 
 # 포그라운드로 두면 스크립트가 멈춘다. 주소는 setting_*.txt 의 port-forward 와 같다.
-# down 은 namespace 기준으로 이 프로세스를 끈다.
+# kubectl 은 파드 연결이 끊기면 프로세스가 끝난다. 감독 프로세스가 같은 포트를 다시 연다.
+# down 은 namespace 기준으로 감독 프로세스와 kubectl 을 끈다.
 start_forward() {
   local ns="$1" label="$2"
   shift 2
   local needle="[k]ubectl port-forward -n ${ns} $*"
-  if pgrep -f "$needle" >/dev/null 2>&1; then
+  local supervisor="[p]ort-forward-supervisor ${ns} $*"
+  if pgrep -f "$needle" >/dev/null 2>&1 || pgrep -f "$supervisor" >/dev/null 2>&1; then
     echo "== ${label} =="
     return 0
   fi
-  nohup kubectl port-forward -n "$ns" "$@" >>"/tmp/port-forward-${ns}.log" 2>&1 &
+  nohup bash -c '
+    ns="$1"
+    shift
+    while true; do
+      kubectl port-forward -n "$ns" "$@"
+      sleep 2
+    done
+  ' port-forward-supervisor "$ns" "$@" >>"/tmp/port-forward-${ns}.log" 2>&1 &
   disown || true
   sleep 1
-  if pgrep -f "$needle" >/dev/null 2>&1; then
+  if pgrep -f "$needle" >/dev/null 2>&1 || pgrep -f "$supervisor" >/dev/null 2>&1; then
     echo "== ${label} =="
   else
     echo "${label} 포트포워딩을 시작하지 못했습니다. /tmp/port-forward-${ns}.log" >&2
+  fi
+}
+
+stop_forward_ns() {
+  local ns="$1"
+  pkill -f "[p]ort-forward-supervisor ${ns} " >/dev/null 2>&1 || true
+  sleep 0.2
+  pkill -f "[k]ubectl port-forward -n ${ns} " >/dev/null 2>&1 || true
+}
+
+# setting_01_kind.txt 의 admin-user. 토큰은 매 접속마다 사용자가 직접 만든다.
+ensure_dashboard_admin() {
+  kubectl apply -f - <<'EOF'
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: kubernetes-dashboard
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: admin-user
+    namespace: kubernetes-dashboard
+EOF
+}
+
+# setting_01_kind.txt 의 대시보드 주소는 port-forward 가 아니라 kubectl proxy 다.
+# 8001 은 RedisInsight 가 쓰지 않는다.
+start_dashboard_proxy() {
+  local needle="[k]ubectl proxy --port=8001"
+  local url="http://localhost:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/"
+  if pgrep -f "$needle" >/dev/null 2>&1; then
+    echo "== Kubernetes Dashboard: ${url} =="
+    return 0
+  fi
+  nohup kubectl proxy --port=8001 >>/tmp/kubectl-proxy.log 2>&1 &
+  disown || true
+  sleep 1
+  if pgrep -f "$needle" >/dev/null 2>&1; then
+    echo "== Kubernetes Dashboard: ${url} =="
+  else
+    echo "Kubernetes Dashboard proxy 를 시작하지 못했습니다. /tmp/kubectl-proxy.log" >&2
   fi
 }
 
@@ -169,7 +228,9 @@ forward_service() {
       start_forward qdrant "Qdrant: http://localhost:6333" svc/qdrant 6333:6333
       ;;
     neo4j)
-      start_forward neo4j "Neo4j: http://localhost:7474" svc/neo4j 7474:7474 7687:7687
+      # 7474 와 7687 을 한 프로세스로 열면 Bolt 연결 리셋이 브라우저 포트까지 닫는다.
+      start_forward neo4j "Neo4j: http://localhost:7474" svc/neo4j 7474:7474
+      start_forward neo4j "Neo4j Bolt: localhost:7687" svc/neo4j 7687:7687
       ;;
     kafka)
       if kubectl get svc kafka-ui -n kafka >/dev/null 2>&1; then
@@ -212,7 +273,7 @@ wait_service() {
   local name="$1" i apps app
   apps="$(field "$name" 3)"
   echo "== ${name} 준비 대기 =="
-  for i in $(seq 1 120); do
+  for i in $(seq 1 360); do
     if service_ready "$name"; then
       echo "== ${name} 준비됨 =="
       return 0
@@ -225,7 +286,7 @@ wait_service() {
     fi
     sleep 5
   done
-  echo "${name} 이 10분 안에 Synced/Healthy 가 되지 않았습니다. kubectl get application -n argocd" >&2
+  echo "${name} 이 30분 안에 Synced/Healthy 가 되지 않았습니다. kubectl get application -n argocd" >&2
   return 1
 }
 
@@ -244,6 +305,8 @@ apply_infra() {
   kubectl apply -f kubernetes/namespaces.yaml
   kubectl apply -f kubernetes/metrics-server.yaml
   kubectl apply -f kubernetes/dashboard.yaml
+  ensure_dashboard_admin
+  start_dashboard_proxy
   kubectl apply -f kubernetes/ingress-nginx-kind.yaml
   kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx --timeout=300s
   # Ready 는 상태 포트가 열렸다는 뜻이다. Ingress 검사 webhook(8443)은 그보다 늦게 열린다.
@@ -327,6 +390,9 @@ ensure_service() {
   # StorageClass 가 WaitForFirstConsumer 라 PVC 는 파드 없이는 영원히 Pending 이다.
   # 로컬 매니페스트로 파드까지 같이 만들어 그 대기를 푼다.
   if [[ "$name" == "postgres" ]]; then
+    # Application 의 CreateNamespace 는 Argo 가 비동기로 처리한다.
+    # 그 전에 postgres/ 를 적용하면 ConfigMap, PVC, Service 가 네임스페이스 없음으로 거절된다.
+    kubectl create namespace "$(field "$name" 5)" --dry-run=client -o yaml | kubectl apply -f -
     kubectl apply -f postgres/
   fi
   wait_service "$name"
@@ -358,9 +424,10 @@ dependents_running() {
 
 stop_forwards() {
   pkill -f "[s]cripts/up.sh" >/dev/null 2>&1 || true
+  pkill -f "[k]ubectl proxy --port=8001" >/dev/null 2>&1 || true
   local ns
   for ns in argocd airflow jenkins mlflow litellm grafana monitoring superset minio qdrant redis neo4j postgres kafka sample; do
-    pkill -f "[k]ubectl port-forward -n ${ns} " >/dev/null 2>&1 || true
+    stop_forward_ns "$ns"
   done
 }
 
@@ -395,7 +462,7 @@ delete_service() {
   fi
 
   suspend_app_of_apps
-  pkill -f "[k]ubectl port-forward -n ${ns} " >/dev/null 2>&1 || true
+  stop_forward_ns "$ns"
   IFS=',' read -r -a app_list <<< "$apps"
   for app in "${app_list[@]}"; do
     kubectl delete application "$app" -n argocd --wait=true --timeout=180s --ignore-not-found
